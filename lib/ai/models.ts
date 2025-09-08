@@ -9,12 +9,14 @@ export interface ChatModel {
 export const chatModels: Array<ChatModel> = [
   {
     id: 'chat-model',
-    name: 'Grok Vision',
-    description: 'Advanced multimodal model with vision and text capabilities',
+    name: 'GPT-5',
+    description:
+      'Flagship OpenAI multimodal model for high‑quality text and vision tasks.',
   },
   {
     id: 'chat-model-reasoning',
-    name: 'Grok Reasoning',
-    description: 'Uses advanced chain-of-thought reasoning for complex problems',
+    name: 'Deep-Research',
+    description:
+      'Optimized for long, step‑by‑step reasoning and research‑style analysis.',
   },
 ];

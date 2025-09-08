@@ -1,5 +1,5 @@
-import { customProvider, wrapLanguageModel } from 'ai';
-import OpenAI from '@ai-sdk/openai';
+import { customProvider } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
 
 export const myProvider = isTestEnvironment
@@ -21,16 +21,18 @@ export const myProvider = isTestEnvironment
     })()
   : customProvider({
       languageModels: {
-        // Main chat model (gpt-4o-mini is a good fast default; adjust as needed)
-        'chat-model': OpenAI('gpt-4o-mini'),
-
-        // Reasoning model (use o3-mini for lightweight reasoning traces)
-        'chat-model-reasoning': wrapLanguageModel({
-          model: OpenAI('o3-mini'),
-        }),
-
-        // Title generation and artifacts can use a cost-effective GPT model
-        'title-model': OpenAI('gpt-4o-mini'),
-        'artifact-model': OpenAI('gpt-4o-mini'),
+        // Create OpenAI provider using env var
+        ...(() => {
+          const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          return {
+            // UI label: GPT-5
+            'chat-model': openai('gpt-5'),
+            // UI label: Deep-Research
+            'chat-model-reasoning': openai('o4-mini-deep-research'),
+            // Keep titles/artifacts on a capable default; align with GPT-5
+            'title-model': openai('gpt-5'),
+            'artifact-model': openai('gpt-5'),
+          };
+        })(),
       },
     });
