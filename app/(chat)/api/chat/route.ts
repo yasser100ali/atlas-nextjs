@@ -168,6 +168,19 @@ export async function POST(request: Request) {
                   'updateDocument',
                   'requestSuggestions',
                 ],
+          // Enable OpenAI Deep Research built-in browsing when the reasoning model is selected
+          providerOptions:
+            selectedChatModel === 'chat-model-reasoning'
+              ? {
+                  openai: {
+                    tools: [
+                      {
+                        type: 'web_search_preview',
+                      },
+                    ],
+                  },
+                }
+              : undefined,
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: {
             getWeather,
