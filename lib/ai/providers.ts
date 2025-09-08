@@ -1,9 +1,5 @@
-import {
-  customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from 'ai';
-import { gateway } from '@ai-sdk/gateway';
+import { customProvider, wrapLanguageModel } from 'ai';
+import OpenAI from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
 
 export const myProvider = isTestEnvironment
@@ -25,12 +21,16 @@ export const myProvider = isTestEnvironment
     })()
   : customProvider({
       languageModels: {
-        'chat-model': gateway.languageModel('xai/grok-2-vision-1212'),
+        // Main chat model (gpt-4o-mini is a good fast default; adjust as needed)
+        'chat-model': OpenAI('gpt-4o-mini'),
+
+        // Reasoning model (use o3-mini for lightweight reasoning traces)
         'chat-model-reasoning': wrapLanguageModel({
-          model: gateway.languageModel('xai/grok-3-mini'),
-          middleware: extractReasoningMiddleware({ tagName: 'think' }),
+          model: OpenAI('o3-mini'),
         }),
-        'title-model': gateway.languageModel('xai/grok-2-1212'),
-        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
+
+        // Title generation and artifacts can use a cost-effective GPT model
+        'title-model': OpenAI('gpt-4o-mini'),
+        'artifact-model': OpenAI('gpt-4o-mini'),
       },
     });
