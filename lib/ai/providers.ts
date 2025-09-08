@@ -23,7 +23,12 @@ export const myProvider = isTestEnvironment
       languageModels: {
         // Create OpenAI provider using env var
         ...(() => {
-          const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          const openai = createOpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+            headers: {
+              'OpenAI-Beta': 'assistants=v2',
+            },
+          });
           return {
             // UI label: GPT-5
             'chat-model': openai('gpt-5'),

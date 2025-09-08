@@ -173,10 +173,12 @@ export async function POST(request: Request) {
             selectedChatModel === 'chat-model-reasoning'
               ? {
                   openai: {
+                    // required beta header for deep research
+                    headers: {
+                      'OpenAI-Beta': 'assistants=v2',
+                    },
                     tools: [
-                      {
-                        type: 'web_search_preview',
-                      },
+                      { type: 'web_search_preview' },
                     ],
                   },
                 }
