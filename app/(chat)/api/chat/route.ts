@@ -93,14 +93,8 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 24,
-    });
-
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
-      return new ChatSDKError('rate_limit:chat').toResponse();
-    }
+    // Disable app-level per-day message limits
+    // (previously compared against entitlementsByUserType[userType].maxMessagesPerDay)
 
     const chat = await getChatById({ id });
 
@@ -153,6 +147,11 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
+        console.log('[chat:route] execute start', {
+          chatId: id,
+          selectedChatModel,
+          messageParts: message.parts?.length ?? 0,
+        });
         const result = await streamChat({
           model: myProvider.languageModel(selectedChatModel),
           messages: convertToModelMessages(uiMessages),
@@ -170,22 +169,34 @@ export async function POST(request: Request) {
           },
           onFinish: (usage) => {
             finalUsage = usage;
+            console.log('[chat:route] onFinish', { usage });
           },
         });
 
         // streamChat returns a StreamTextResult for the regular model
         // and undefined for the reasoning agent path.
+        console.log('[chat:route] streamChat returned', {
+          hasResult: Boolean(result),
+        });
         if (result) {
+          console.log('[chat:route] consuming/merging regular stream');
           result.consumeStream();
           dataStream.merge(
             result.toUIMessageStream({
               sendReasoning: true,
             }),
           );
+        } else {
+          console.log(
+            '[chat:route] no result (reasoning path handled its own streaming)',
+          );
         }
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
+        console.log('[chat:route] UI stream finished, saving messages', {
+          count: messages.length,
+        });
         await saveMessages({
           messages: messages.map((message) => ({
             id: message.id,
@@ -198,6 +209,7 @@ export async function POST(request: Request) {
         });
       },
       onError: () => {
+        console.error('[chat:route] UI stream error');
         return 'Oops, an error occurred!';
       },
     });
