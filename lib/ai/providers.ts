@@ -30,13 +30,13 @@ export const myProvider = isTestEnvironment
             },
           });
           return {
-            // UI label: GPT-5
-            'chat-model': openai('gpt-5'),
+            // UI label: GPT-4.1
+            'chat-model': openai('gpt-4.1'),
             // UI label: Deep-Research
             'chat-model-reasoning': openai('o4-mini-deep-research'),
-            // Keep titles/artifacts on a capable default; align with GPT-5
-            'title-model': openai('gpt-5'),
-            'artifact-model': openai('gpt-5'),
+            // Keep titles/artifacts on a capable default; align with GPT-4.1
+            'title-model': openai('gpt-4.1'),
+            'artifact-model': openai('gpt-4.1'),
           };
         })(),
       },

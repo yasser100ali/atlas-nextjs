@@ -9,9 +9,9 @@ export interface ChatModel {
 export const chatModels: Array<ChatModel> = [
   {
     id: 'chat-model',
-    name: 'GPT-5',
+    name: 'GPT-4.1',
     description:
-      'Flagship OpenAI multimodal model for high‑quality text and vision tasks.',
+      'Balanced OpenAI multimodal model with strong quality and better latency.',
   },
   {
     id: 'chat-model-reasoning',
