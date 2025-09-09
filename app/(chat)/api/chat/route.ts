@@ -152,8 +152,8 @@ export async function POST(request: Request) {
     let finalUsage: any;
 
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const result = streamChat({
+      execute: async ({ writer: dataStream }) => {
+        const result = await streamChat({
           model: myProvider.languageModel(selectedChatModel),
           messages: convertToModelMessages(uiMessages),
           selectedChatModel,
@@ -173,13 +173,16 @@ export async function POST(request: Request) {
           },
         });
 
-        result.consumeStream();
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
+        // streamChat returns a StreamTextResult for the regular model
+        // and undefined for the reasoning agent path.
+        if (result) {
+          result.consumeStream();
+          dataStream.merge(
+            result.toUIMessageStream({
+              sendReasoning: true,
+            }),
+          );
+        }
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {

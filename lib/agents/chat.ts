@@ -4,63 +4,13 @@ import {
   streamText,
   type LanguageModelUsage,
 } from 'ai';
-import { isProductionEnvironment } from '@/lib/constants';
+import { isProductionEnvironment } from '../constants';
 
-export interface RequestHints {
-  latitude: any;
-  longitude: any;
-  city: any;
-  country: any;
-}
+// ⬇️ Agents SDK
+import { run, system, user } from '@openai/agents';
+import { researchAgent } from './researchAgent';
 
-const regularPrompt =
-  'You are a friendly assistant! Keep your responses concise and helpful.';
-
-const artifactsPrompt = `
-Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
-
-When asked to write code, always use artifacts. When writing code, specify the language in the backticks, e.g. \`\`\`python\`code here\`\`\`. The default language is Python. Other languages are not yet supported, so let the user know if they request a different language.
-
-DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
-
-This is a guide for using artifacts tools: \`createDocument\` and \`updateDocument\`, which render content on a artifacts beside the conversation.
-
-**When to use \`createDocument\`:**
-- For substantial content (>10 lines) or code
-- For content users will likely save/reuse (emails, code, essays, etc.)
-- When explicitly requested to create a document
-- For when content contains a single code snippet
-
-**When NOT to use \`createDocument\`:**
-- For informational/explanatory content
-- For conversational responses
-- When asked to keep it in chat
-
-**Using \`updateDocument\`:**
-- Default to full document rewrites for major changes
-- Use targeted updates only for specific, isolated changes
-- Follow user instructions for which parts to modify
-
-**When NOT to use \`updateDocument\`:**
-- Immediately after creating a document
-`;
-
-function getRequestPromptFromHints(requestHints: RequestHints) {
-  return `About the origin of user's request:\n- lat: ${requestHints.latitude}\n- lon: ${requestHints.longitude}\n- city: ${requestHints.city}\n- country: ${requestHints.country}`;
-}
-
-function buildSystemPrompt(
-  selectedChatModel: string,
-  requestHints: RequestHints,
-) {
-  const requestPrompt = getRequestPromptFromHints(requestHints);
-  if (selectedChatModel === 'chat-model-reasoning') {
-    return `${regularPrompt}\n\n${requestPrompt}`;
-  }
-  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
-}
-
-export function streamChat({
+export async function streamChat({
   model,
   messages,
   selectedChatModel,
@@ -72,38 +22,76 @@ export function streamChat({
   model: any;
   messages: any;
   selectedChatModel: string;
-  requestHints: RequestHints;
+  requestHints: { latitude: any; longitude: any; city: any; country: any };
   dataStream: any;
   tools: any;
   onFinish: (usage: LanguageModelUsage | undefined) => void;
 }) {
-  const providerOptions =
-    selectedChatModel === 'chat-model-reasoning'
-      ? {
-          openai: {
-            headers: {
-              'OpenAI-Beta': 'assistants=v2',
-            },
-            tools: [{ type: 'web_search_preview' }],
-          },
-        }
-      : undefined;
+  const buildSystemPrompt = () => {
+    const req = `About the origin of user's request:
+- lat: ${requestHints.latitude}
+- lon: ${requestHints.longitude}
+- city: ${requestHints.city}
+- country: ${requestHints.country}`;
+    const regular =
+      'You are a friendly assistant! Keep your responses concise and helpful.';
+    return `${regular}\n\n${req}`;
+  };
 
+  // ===== Route A: Agents SDK for “reasoning” =====
+  if (selectedChatModel === 'chat-model-reasoning') {
+    const sys = buildSystemPrompt();
+    const lastUser =
+      messages
+        ?.slice()
+        .reverse()
+        .find((m: any) => m.role === 'user')?.content ?? '';
+
+    // Streaming tokens from the Agent to your existing dataStream
+    const stream = await run(researchAgent, [system(sys), user(lastUser)], {
+      stream: true,
+    });
+
+    // Use the text stream for simpler handling
+    const textStream = stream.toTextStream();
+
+    try {
+      // Signal UI that assistant text is starting
+      dataStream.write({ type: 'text-start' });
+      for await (const chunk of textStream) {
+        // UI expects { type: 'text-delta', delta: string }
+        dataStream.write({ type: 'text-delta', delta: chunk });
+      }
+      // Close the assistant text block
+      dataStream.write({ type: 'text-end' });
+      onFinish(undefined);
+    } catch (error) {
+      dataStream.write({
+        type: 'text-delta',
+        delta: `\n[agent error] ${error}`,
+      });
+      dataStream.write({ type: 'text-end' });
+      onFinish(undefined);
+    }
+    return;
+  }
+
+  // ===== Route B: your existing Vercel AI SDK path =====
   const result = streamText({
     model,
-    system: buildSystemPrompt(selectedChatModel, requestHints),
+    system: buildSystemPrompt(),
     messages,
     stopWhen: stepCountIs(5),
     experimental_activeTools:
-      selectedChatModel === 'chat-model-reasoning'
-        ? []
-        : [
+      selectedChatModel === 'chat-model'
+        ? [
             'getWeather',
             'createDocument',
             'updateDocument',
             'requestSuggestions',
-          ],
-    providerOptions,
+          ]
+        : [],
+    providerOptions: undefined,
     experimental_transform: smoothStream({ chunking: 'word' }),
     tools,
     experimental_telemetry: {
