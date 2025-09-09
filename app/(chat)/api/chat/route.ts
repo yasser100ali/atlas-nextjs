@@ -2,13 +2,11 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   JsonToSseTransformStream,
-  type LanguageModelUsage,
-  smoothStream,
-  stepCountIs,
-  streamText,
 } from 'ai';
-import { auth, type UserType } from '@/app/(auth)/auth';
-import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
+import { auth } from '@/app/(auth)/auth';
+import type { UserType } from '@/app/(auth)/auth';
+import type { RequestHints } from '@/lib/ai/prompts';
+import { streamChat } from '@/lib/agents/chat';
 import {
   createStreamId,
   deleteChatById,
@@ -24,10 +22,11 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
-import { isProductionEnvironment } from '@/lib/constants';
+// import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import { postRequestBodySchema, type PostRequestBody } from './schema';
+import { postRequestBodySchema } from './schema';
+import type { PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
 import {
   createResumableStreamContext,
@@ -150,40 +149,16 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
-    let finalUsage: LanguageModelUsage | undefined;
+    let finalUsage: any;
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
-        const result = streamText({
+        const result = streamChat({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
-          // Enable OpenAI Deep Research built-in browsing when the reasoning model is selected
-          providerOptions:
-            selectedChatModel === 'chat-model-reasoning'
-              ? {
-                  openai: {
-                    // required beta header for deep research
-                    headers: {
-                      'OpenAI-Beta': 'assistants=v2',
-                    },
-                    tools: [
-                      { type: 'web_search_preview' },
-                    ],
-                  },
-                }
-              : undefined,
-          experimental_transform: smoothStream({ chunking: 'word' }),
+          selectedChatModel,
+          requestHints,
+          dataStream,
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
@@ -193,13 +168,8 @@ export async function POST(request: Request) {
               dataStream,
             }),
           },
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
-          onFinish: ({ usage }) => {
+          onFinish: (usage) => {
             finalUsage = usage;
-            dataStream.write({ type: 'data-usage', data: usage });
           },
         });
 
