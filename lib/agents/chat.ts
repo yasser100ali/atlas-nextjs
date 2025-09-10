@@ -6,8 +6,7 @@ import {
 } from 'ai';
 import { isProductionEnvironment } from '../constants';
 
-// ⬇️ Agents SDK
-import { run, system, user } from '@openai/agents';
+// ⬇️ Direct OpenAI Responses API
 import { researchAgent } from './researchAgent';
 
 export async function streamChat({
@@ -41,72 +40,68 @@ export async function streamChat({
     return `${regular}\n\n${req}`;
   };
 
-  // ===== Route A: Agents SDK for “reasoning” =====
+  // ===== Route A: Direct OpenAI Responses API for "reasoning" =====
   if (selectedChatModel === 'chat-model-reasoning') {
-    console.log('[streamChat] routing: reasoning (agents)');
-    const sys = buildSystemPrompt();
-    const lastUser =
-      messages
-        ?.slice()
-        .reverse()
-        .find((m: any) => m.role === 'user')?.content ?? '';
+    console.log('[streamChat] routing: reasoning (python backend)');
+    const pythonBackendUrl = 'http://127.0.0.1:8000/api/chat';
 
-    // Streaming tokens from the Agent to your existing dataStream
-    console.log('[streamChat] invoking researchAgent.run with string input');
-    const combinedInput = `${sys}\n\n${lastUser}`;
-
-    // Retry the streamed run to mitigate provider rate limits
-    async function runWithRetry(attempt = 1): Promise<any> {
-      try {
-        return await run(researchAgent, combinedInput, { stream: true });
-      } catch (error) {
-        const maxAttempts = 3;
-        const baseMs = 750;
-        const shouldRetry =
-          (error as any)?.code === 'rate_limit_exceeded' &&
-          attempt < maxAttempts;
-        if (!shouldRetry) throw error;
-        const delay = baseMs * Math.pow(2, attempt - 1);
-        console.warn('[streamChat] rate limited, retrying', { attempt, delay });
-        await new Promise((r) => setTimeout(r, delay));
-        return runWithRetry(attempt + 1);
-      }
-    }
-
-    const stream = await runWithRetry();
-
-    // Use the text stream for simpler handling
-    console.log('[streamChat] toTextStream(nodeCompatible=true)');
-    const textStream = stream.toTextStream({ compatibleWithNodeStreams: true });
-
-    try {
-      // Signal UI that a new step and assistant text are starting
-      dataStream.write({ type: 'start-step' });
-      dataStream.write({ type: 'text-start' });
-      let chunkCount = 0;
-      for await (const chunk of textStream) {
-        chunkCount += 1;
-        // UI expects { type: 'text-delta', delta: string }
-        dataStream.write({ type: 'text-delta', delta: chunk });
-      }
-      // Close the assistant text block and step
-      dataStream.write({ type: 'text-end' });
-      dataStream.write({ type: 'finish-step' });
-      // Signal the overall end so the UI assembles the assistant message
-      dataStream.write({ type: 'final' });
-      console.log('[streamChat] reasoning stream complete', { chunkCount });
-      onFinish(undefined);
-    } catch (error) {
-      console.error('[streamChat] reasoning stream error', error);
-      dataStream.write({
-        type: 'text-delta',
-        delta: `\n[agent error] ${error}`,
+    fetch(pythonBackendUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, selectedChatModel, requestHints }),
+    })
+      .then(async (response) => {
+        if (!response.body) {
+          throw new Error('Python backend response has no body');
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        try {
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() ?? ''; // The last part might be incomplete
+            for (const part of parts) {
+              if (part.startsWith('data: ')) {
+                try {
+                  const jsonData = part.substring(6);
+                  if (jsonData.trim()) {
+                    const data = JSON.parse(jsonData);
+                    dataStream.write(data);
+                  }
+                } catch (e) {
+                  console.error('Error parsing JSON from python stream:', e);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[streamChat] python stream error', error);
+          dataStream.write({
+            type: 'text-delta',
+            delta: `\n[python backend error] ${error}`,
+          });
+          dataStream.write({ type: 'text-end' });
+          dataStream.write({ type: 'finish-step' });
+          dataStream.write({ type: 'final' });
+        } finally {
+          onFinish(undefined);
+        }
+      })
+      .catch((error) => {
+        console.error('[streamChat] python fetch error', error);
+        dataStream.write({
+          type: 'text-delta',
+          delta: `\n[python backend error] ${error}`,
+        });
+        dataStream.write({ type: 'text-end' });
+        dataStream.write({ type: 'finish-step' });
+        dataStream.write({ type: 'final' });
+        onFinish(undefined);
       });
-      dataStream.write({ type: 'text-end' });
-      dataStream.write({ type: 'finish-step' });
-      dataStream.write({ type: 'final' });
-      onFinish(undefined);
-    }
     return;
   }
 
