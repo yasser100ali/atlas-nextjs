@@ -7,7 +7,6 @@ import {
 import { isProductionEnvironment } from '../constants';
 
 // ⬇️ Direct OpenAI Responses API
-import { researchAgent } from './researchAgent';
 
 export async function streamChat({
   model,
