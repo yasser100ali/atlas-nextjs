@@ -1,12 +1,6 @@
-import {
-  convertToModelMessages,
-  createUIMessageStream,
-  JsonToSseTransformStream,
-} from 'ai';
 import { auth } from '@/app/(auth)/auth';
 import type { UserType } from '@/app/(auth)/auth';
 import type { RequestHints } from '@/lib/ai/prompts';
-import { streamChat } from '@/lib/agents/chat';
 import {
   createStreamId,
   deleteChatById,
@@ -18,12 +12,6 @@ import {
 } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
-// import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema } from './schema';
 import type { PostRequestBody } from './schema';
@@ -147,49 +135,74 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
-        console.log('[chat:route] execute start', {
-          chatId: id,
-          selectedChatModel,
-          messageParts: message.parts?.length ?? 0,
-        });
-        const result = await streamChat({
-          model: myProvider.languageModel(selectedChatModel),
-          messages: convertToModelMessages(uiMessages),
-          selectedChatModel,
-          requestHints,
-          dataStream,
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
-          onFinish: (usage) => {
-            finalUsage = usage;
-            console.log('[chat:route] onFinish', { usage });
-          },
-        });
+        try {
+          console.log('[chat:route] proxying to Python backend', {
+            chatId: id,
+            selectedChatModel,
+          });
 
-        // streamChat returns a StreamTextResult for the regular model
-        // and undefined for the reasoning agent path.
-        console.log('[chat:route] streamChat returned', {
-          hasResult: Boolean(result),
-        });
-        if (result) {
-          console.log('[chat:route] consuming/merging regular stream');
-          result.consumeStream();
-          dataStream.merge(
-            result.toUIMessageStream({
-              sendReasoning: true,
+          // Proxy to Python backend
+          const pythonResponse = await fetch('http://localhost:8000/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messages: convertToModelMessages(uiMessages),
+              selectedChatModel,
+              requestHints,
             }),
-          );
-        } else {
-          console.log(
-            '[chat:route] no result (reasoning path handled its own streaming)',
-          );
+          });
+
+          if (!pythonResponse.ok) {
+            throw new Error(`Python backend error: ${pythonResponse.status} ${pythonResponse.statusText}`);
+          }
+
+          // Stream the response from Python backend
+          const reader = pythonResponse.body?.getReader();
+          if (!reader) {
+            throw new Error('No response body from Python backend');
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+
+              // Keep the last incomplete line in buffer
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.trim() && line.startsWith('data: ')) {
+                  try {
+                    // Parse and forward the data to the client
+                    const data = JSON.parse(line.replace('data: ', ''));
+                    dataStream.write(data);
+                  } catch (parseError) {
+                    console.log('[chat:route] Non-JSON line:', line);
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+
+        } catch (error) {
+          console.error('[chat:route] Error proxying to Python backend:', error);
+          dataStream.write({
+            type: 'text-delta',
+            delta: `\n[Error] Failed to connect to Python backend: ${error.message}\n`,
+          });
+          dataStream.write({ type: 'text-end' });
+          dataStream.write({ type: 'finish-step' });
+          dataStream.write({ type: 'final' });
         }
       },
       generateId: generateUUID,
