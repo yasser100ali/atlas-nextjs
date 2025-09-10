@@ -155,7 +155,9 @@ export async function POST(request: Request) {
           });
 
           if (!pythonResponse.ok) {
-            throw new Error(`Python backend error: ${pythonResponse.status} ${pythonResponse.statusText}`);
+            throw new Error(
+              `Python backend error: ${pythonResponse.status} ${pythonResponse.statusText}`,
+            );
           }
 
           // Stream the response from Python backend
@@ -193,9 +195,11 @@ export async function POST(request: Request) {
           } finally {
             reader.releaseLock();
           }
-
         } catch (error) {
-          console.error('[chat:route] Error proxying to Python backend:', error);
+          console.error(
+            '[chat:route] Error proxying to Python backend:',
+            error,
+          );
           dataStream.write({
             type: 'text-delta',
             delta: `\n[Error] Failed to connect to Python backend: ${error.message}\n`,
