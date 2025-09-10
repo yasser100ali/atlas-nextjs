@@ -6,10 +6,6 @@ import {
 } from 'ai';
 import { isProductionEnvironment } from '../constants';
 
-// ⬇️ Agents SDK
-import { run, system, user } from '@openai/agents';
-import { researchAgent } from './researchAgent';
-
 export async function streamChat({
   model,
   messages,
@@ -18,6 +14,7 @@ export async function streamChat({
   dataStream,
   tools,
   onFinish,
+  chatId,
 }: {
   model: any;
   messages: any;
@@ -26,6 +23,7 @@ export async function streamChat({
   dataStream: any;
   tools: any;
   onFinish: (usage: LanguageModelUsage | undefined) => void;
+  chatId: string;
 }) {
   const buildSystemPrompt = () => {
     const req = `About the origin of user's request:
@@ -38,31 +36,64 @@ export async function streamChat({
     return `${regular}\n\n${req}`;
   };
 
-  // ===== Route A: Agents SDK for “reasoning” =====
+  // ===== Route A: Python FastAPI backend for “reasoning” =====
   if (selectedChatModel === 'chat-model-reasoning') {
-    const sys = buildSystemPrompt();
-    const lastUser =
-      messages
-        ?.slice()
-        .reverse()
-        .find((m: any) => m.role === 'user')?.content ?? '';
+    const backend =
+      process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
 
-    // Streaming tokens from the Agent to your existing dataStream
-    const stream = await run(researchAgent, [system(sys), user(lastUser)], {
-      stream: true,
-    });
+    const toText = (content: any) =>
+      typeof content === 'string'
+        ? content
+        : (content || [])
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('');
 
-    // Use the text stream for simpler handling
-    const textStream = stream.toTextStream();
+    const pyMessages = messages.map((m: any) => ({
+      role: m.role,
+      content: toText(m.content),
+    }));
 
     try {
-      // Signal UI that assistant text is starting
+      const response = await fetch(`${backend}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: pyMessages, chatId }),
+      });
+
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let previous = '';
+
       dataStream.write({ type: 'text-start' });
-      for await (const chunk of textStream) {
-        // UI expects { type: 'text-delta', delta: string }
-        dataStream.write({ type: 'text-delta', delta: chunk });
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.event === 'final') {
+              const text = evt.response || '';
+              const delta = text.slice(previous.length);
+              if (delta) {
+                dataStream.write({ type: 'text-delta', delta });
+              }
+              previous = text;
+            }
+          } catch (err) {
+            // Ignore malformed lines
+          }
+        }
       }
-      // Close the assistant text block
+
       dataStream.write({ type: 'text-end' });
       onFinish(undefined);
     } catch (error) {

@@ -1,5 +1,4 @@
-import { Agent, tool, OpenAIResponsesModel } from '@openai/agents';
-import { webSearchTool } from '@openai/agents';
+import { Agent, tool, OpenAIResponsesModel, webSearchTool } from '@openai/agents';
 import OpenAI from 'openai';
 import { z } from 'zod';
 
@@ -50,7 +49,7 @@ WORKFLOW
 1) Interpret the user's query (and optional focus area).
 2) Use your built-in browsing & analysis to gather facts, stats, and differing viewpoints from reputable, recent sources.
 3) Build a list named findings with dicts: title, url, snippet.
-4) Call summarize_research(...) EXACTLY ONCE, then STOP.
+4) Call summary_research(...) EXACTLY ONCE, then STOP.
 
 CONSTRAINTS
 - Prefer authoritative and recent sources when recency matters.

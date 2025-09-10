@@ -171,6 +171,7 @@ export async function POST(request: Request) {
           onFinish: (usage) => {
             finalUsage = usage;
           },
+          chatId: id,
         });
 
         // streamChat returns a StreamTextResult for the regular model
