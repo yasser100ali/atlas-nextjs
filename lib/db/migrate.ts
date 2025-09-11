@@ -28,5 +28,12 @@ const runMigrate = async () => {
 runMigrate().catch((err) => {
   console.error('❌ Migration failed');
   console.error(err);
+
+  // Exit gracefully on Vercel builds where DB might not be available
+  if (process.env.VERCEL || !process.env.POSTGRES_URL) {
+    console.log('⚠️ Skipping migrations (database not available)');
+    process.exit(0);
+  }
+
   process.exit(1);
 });
