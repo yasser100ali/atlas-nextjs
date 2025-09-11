@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Any, Optional
-from .research_agent import research_agent, client
+from .research_agent import research_agent_stream, client
 
 # Tool definitions for function calling
 TOOLS = [
@@ -92,13 +92,6 @@ This is a guide for using artifacts tools: `createDocument` and `updateDocument`
     # Only include artifacts prompt for non-reasoning models
     return f"{regular}\n\n{req}\n\n{artifacts_prompt}"
 
-def mock_weather_tool(location: str) -> str:
-    """Mock weather tool implementation."""
-    return f"The weather in {location} is sunny with a temperature of 72°F."
-
-def mock_create_document(title: str, content: str = "", doc_type: str = "text") -> str:
-    """Mock document creation tool."""
-    return f"Created {doc_type} document titled '{title}' with content: {content[:100]}..."
 
 def handle_tool_call(tool_call: Dict[str, Any]) -> str:
     """Handle tool calls from the model."""
@@ -139,24 +132,9 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
         yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
 
         try:
-            response_stream = await research_agent(combined_input, stream=True)
-
-            async for chunk in response_stream:
-                if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    yield f"data: {json.dumps({'type': 'text-delta', 'delta': content})}\n\n"
-                elif hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
-                    # Handle tool calls from research agent
-                    tool_calls = chunk.choices[0].delta.tool_calls
-                    for tool_call in tool_calls:
-                        if tool_call.function:
-                            tool_result = handle_tool_call({
-                                'function': {
-                                    'name': tool_call.function.name,
-                                    'arguments': tool_call.function.arguments
-                                }
-                            })
-                            yield f"data: {json.dumps({'type': 'text-delta', 'delta': f'\n{tool_result}\n'})}\n\n"
+            async for delta in research_agent_stream(combined_input):
+                if delta:
+                    yield f"data: {json.dumps({'type': 'text-delta', 'delta': delta})}\n\n"
 
         except Exception as e:
             error_message = f"\n[research error] {str(e)}"
