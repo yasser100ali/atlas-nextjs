@@ -7,6 +7,7 @@
     "dev": "concurrently \"npm:dev:next\" \"npm:dev:python\"",
     "dev:python": "uvicorn backend.main:app --reload",
     "build": "tsx lib/db/migrate || echo 'Migrations skipped' && next build",
+    "build:vercel": "next build",
     "start": "next start",
     "lint": "next lint && biome lint --write --unsafe",
     "lint:fix": "next lint --fix && biome lint --write --unsafe",
