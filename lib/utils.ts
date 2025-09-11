@@ -108,6 +108,16 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
   }));
 }
 
+// Convert UI messages to model-compatible messages ({ role, content })
+export function convertToModelMessages(
+  messages: ChatMessage[],
+): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
+  return messages.map((msg) => ({
+    role: msg.role,
+    content: getTextFromMessage(msg),
+  }));
+}
+
 export function getTextFromMessage(message: ChatMessage): string {
   return message.parts
     .filter((part) => part.type === 'text')

@@ -10,12 +10,16 @@ import {
   saveChat,
   saveMessages,
 } from '@/lib/db/queries';
-import { convertToUIMessages, generateUUID } from '@/lib/utils';
+import {
+  convertToUIMessages,
+  convertToModelMessages,
+  generateUUID,
+} from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema } from './schema';
 import type { PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
+import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import {
   createResumableStreamContext,
   type ResumableStreamContext,
@@ -168,6 +172,7 @@ export async function POST(request: Request) {
 
           const decoder = new TextDecoder();
           let buffer = '';
+          let assistantId: string | null = null;
 
           try {
             while (true) {
@@ -181,14 +186,65 @@ export async function POST(request: Request) {
               buffer = lines.pop() || '';
 
               for (const line of lines) {
-                if (line.trim() && line.startsWith('data: ')) {
-                  try {
-                    // Parse and forward the data to the client
-                    const data = JSON.parse(line.replace('data: ', ''));
-                    dataStream.write(data);
-                  } catch (parseError) {
-                    console.log('[chat:route] Non-JSON line:', line);
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                // Log every raw line for debugging purposes
+                console.log('[chat:route] <- python:', trimmed.slice(0, 120));
+
+                let jsonPayload: any = null;
+
+                try {
+                  const withoutPrefix = trimmed.startsWith('data: ')
+                    ? trimmed.replace('data: ', '')
+                    : trimmed;
+                  jsonPayload = JSON.parse(withoutPrefix);
+                } catch (err) {
+                  console.warn(
+                    '[chat:route] Could not parse line as JSON:',
+                    trimmed,
+                  );
+                  continue;
+                }
+
+                // Forward to UI stream
+                const { type } = jsonPayload;
+
+                if (type === 'text-start') {
+                  assistantId = generateUUID();
+                  dataStream.write({
+                    type: 'text-start',
+                    id: assistantId,
+                  } as any);
+                } else if (type === 'text-delta') {
+                  if (!assistantId) {
+                    assistantId = generateUUID();
+                    dataStream.write({
+                      type: 'text-start',
+                      id: assistantId,
+                    } as any);
                   }
+                  dataStream.write({
+                    type: 'text-delta',
+                    id: assistantId,
+                    delta: jsonPayload.delta,
+                  } as any);
+                } else if (type === 'text-end') {
+                  if (assistantId) {
+                    dataStream.write({
+                      type: 'text-end',
+                      id: assistantId,
+                    } as any);
+                  }
+                } else if (type === 'start-step') {
+                  // Map python control event to UI control event
+                  dataStream.write({ type: 'start' } as any);
+                } else if (type === 'finish-step' || type === 'final') {
+                  dataStream.write({ type: 'finish' } as any);
+                  assistantId = null;
+                } else {
+                  // unknown data; forward raw
+                  dataStream.write(jsonPayload as any);
                 }
               }
             }
@@ -202,11 +258,13 @@ export async function POST(request: Request) {
           );
           dataStream.write({
             type: 'text-delta',
-            delta: `\n[Error] Failed to connect to Python backend: ${error.message}\n`,
+            id: generateUUID(),
+            delta: `\n[Error] Failed to connect to Python backend: ${
+              (error as Error).message
+            }\n`,
           });
-          dataStream.write({ type: 'text-end' });
-          dataStream.write({ type: 'finish-step' });
-          dataStream.write({ type: 'final' });
+          dataStream.write({ type: 'text-end' } as any);
+          dataStream.write({ type: 'finish-step' } as any);
         }
       },
       generateId: generateUUID,
