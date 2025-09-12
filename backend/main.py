@@ -2,8 +2,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
+import logging
 
 from .agents.chat import stream_chat_py
+
+# Configure simple logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 app = FastAPI()
 

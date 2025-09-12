@@ -1,7 +1,12 @@
 import json
 import os
+import time
+import logging
 from typing import Dict, List, Any, Optional
 from .research_agent import research_agent_stream, client
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Tool definitions for function calling
 TOOLS = [
@@ -121,66 +126,75 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
     For other models, it uses standard chat completion with tools.
     Yields data in Server-Sent Events format.
     """
-    system_prompt = build_system_prompt(request_hints)
+    start_time = time.time()
 
-    if selected_chat_model == 'chat-model-reasoning':
-        # Use research agent for deep research
-        last_user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
-        combined_input = f"{system_prompt}\n\n{last_user_message}"
+    try:
+        system_prompt = build_system_prompt(request_hints)
 
-        yield f"data: {json.dumps({'type': 'start-step'})}\n\n"
-        yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
+        if selected_chat_model == 'chat-model-reasoning':
+            # Use research agent for deep research
+            last_user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
+            combined_input = f"{system_prompt}\n\n{last_user_message}"
 
-        try:
-            async for delta in research_agent_stream(combined_input):
-                if delta:
-                    yield f"data: {json.dumps({'type': 'text-delta', 'delta': delta})}\n\n"
+            yield f"data: {json.dumps({'type': 'start-step'})}\n\n"
+            yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
 
-        except Exception as e:
-            error_message = f"\n[research error] {str(e)}"
-            yield f"data: {json.dumps({'type': 'text-delta', 'delta': error_message})}\n\n"
-        finally:
-            yield f"data: {json.dumps({'type': 'text-end'})}\n\n"
-            yield f"data: {json.dumps({'type': 'finish-step'})}\n\n"
-            yield f"data: {json.dumps({'type': 'final'})}\n\n"
+            try:
+                async for delta in research_agent_stream(combined_input):
+                    if delta:
+                        yield f"data: {json.dumps({'type': 'text-delta', 'delta': delta})}\n\n"
 
-    else:
-        # Use standard chat completion with tools for base model
-        all_messages = [{"role": "system", "content": system_prompt}] + messages
+            except Exception as e:
+                error_message = f"\n[research error] {str(e)}"
+                yield f"data: {json.dumps({'type': 'text-delta', 'delta': error_message})}\n\n"
+                raise  # Re-raise to be caught by outer except
+            finally:
+                yield f"data: {json.dumps({'type': 'text-end'})}\n\n"
+                yield f"data: {json.dumps({'type': 'finish-step'})}\n\n"
+                yield f"data: {json.dumps({'type': 'final'})}\n\n"
 
-        yield f"data: {json.dumps({'type': 'start-step'})}\n\n"
-        yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
+        else:
+            # Use standard chat completion with tools for base model
+            all_messages = [{"role": "system", "content": system_prompt}] + messages
 
-        try:
-            response_stream = await client.chat.completions.create(
-                model='gpt-4o-mini',  # Changed from gpt-4.1 to gpt-4o-mini which exists
-                messages=all_messages,
-                tools=TOOLS,
-                tool_choice="auto",
-                stream=True
-            )
+            yield f"data: {json.dumps({'type': 'start-step'})}\n\n"
+            yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
 
-            async for chunk in response_stream:
-                if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    yield f"data: {json.dumps({'type': 'text-delta', 'delta': content})}\n\n"
-                elif hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
-                    # Handle tool calls
-                    tool_calls = chunk.choices[0].delta.tool_calls
-                    for tool_call in tool_calls:
-                        if hasattr(tool_call, 'function') and tool_call.function:
-                            tool_result = handle_tool_call({
-                                'function': {
-                                    'name': tool_call.function.name,
-                                    'arguments': tool_call.function.arguments
-                                }
-                            })
-                            yield f"data: {json.dumps({'type': 'text-delta', 'delta': f'\n{tool_result}\n'})}\n\n"
+            try:
+                response_stream = await client.chat.completions.create(
+                    model='gpt-4o-mini',  # Changed from gpt-4.1 to gpt-4o-mini which exists
+                    messages=all_messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    stream=True
+                )
 
-        except Exception as e:
-            error_message = f"\n[chat error] {str(e)}"
-            yield f"data: {json.dumps({'type': 'text-delta', 'delta': error_message})}\n\n"
-        finally:
-            yield f"data: {json.dumps({'type': 'text-end'})}\n\n"
-            yield f"data: {json.dumps({'type': 'finish-step'})}\n\n"
-            yield f"data: {json.dumps({'type': 'final'})}\n\n"
+                async for chunk in response_stream:
+                    if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        yield f"data: {json.dumps({'type': 'text-delta', 'delta': content})}\n\n"
+                    elif hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
+                        # Handle tool calls
+                        tool_calls = chunk.choices[0].delta.tool_calls
+                        for tool_call in tool_calls:
+                            if hasattr(tool_call, 'function') and tool_call.function:
+                                tool_result = handle_tool_call({
+                                    'function': {
+                                        'name': tool_call.function.name,
+                                        'arguments': tool_call.function.arguments
+                                    }
+                                })
+                                yield f"data: {json.dumps({'type': 'text-delta', 'delta': f'\n{tool_result}\n'})}\n\n"
+
+            except Exception as e:
+                error_message = f"\n[chat error] {str(e)}"
+                yield f"data: {json.dumps({'type': 'text-delta', 'delta': error_message})}\n\n"
+                raise  # Re-raise to be caught by outer except
+            finally:
+                yield f"data: {json.dumps({'type': 'text-end'})}\n\n"
+                yield f"data: {json.dumps({'type': 'finish-step'})}\n\n"
+                yield f"data: {json.dumps({'type': 'final'})}\n\n"
+
+    finally:
+        duration = time.time() - start_time
+        logger.info(".2f")

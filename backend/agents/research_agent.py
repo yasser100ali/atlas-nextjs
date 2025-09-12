@@ -1,6 +1,11 @@
 import os
 import openai
+import time
+import logging
 from dotenv import load_dotenv
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -13,18 +18,27 @@ client = openai.AsyncOpenAI(
 )
 
 async def research_agent_stream(input_str: str):
-    async with client.responses.stream(
-        model="o4-mini-deep-research",
-        input=input_str,
-        tools=[{"type": "web_search_preview"}],
-    ) as stream:
-        async for event in stream:
-            # Stream text deltas
-            if event.type == "response.output_text.delta":
-                yield event.delta or ""
-            # Optional: surface errors
-            elif event.type == "response.error":
-                msg = getattr(event, "error", None)
-                raise Exception(getattr(msg, "message", "unknown responses error"))
+    """Research agent stream with simple timing."""
+    start_time = time.time()
+
+    try:
+        async with client.responses.stream(
+            model="gpt-5",
+            input=input_str,
+            tools=[{"type": "web_search"}],
+        ) as stream:
+            async for event in stream:
+                # Stream text deltas
+                if event.type == "response.output_text.delta":
+                    delta = event.delta or ""
+                    yield delta
+                # Optional: surface errors
+                elif event.type == "response.error":
+                    msg = getattr(event, "error", None)
+                    raise Exception(getattr(msg, "message", "unknown responses error"))
+
+    finally:
+        duration = time.time() - start_time
+        logger.info(".2f")
 
 
