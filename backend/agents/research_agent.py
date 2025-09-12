@@ -5,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 load_dotenv()
 
@@ -39,6 +39,6 @@ async def research_agent_stream(input_str: str):
 
     finally:
         duration = time.time() - start_time
-        logger.info(".2f")
+        logger.info(f"Research Agent completed in {duration:.2f} seconds")
 
 

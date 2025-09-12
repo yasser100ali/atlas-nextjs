@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 from .research_agent import research_agent_stream, client
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 # Tool definitions for function calling
 TOOLS = [
@@ -197,4 +197,4 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
 
     finally:
         duration = time.time() - start_time
-        logger.info(".2f")
+        logger.info(f"Chat Agent completed in {duration:.2f} seconds")
