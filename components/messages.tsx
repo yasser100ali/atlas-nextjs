@@ -47,18 +47,27 @@ function PureMessages({
   useDataStream();
 
   useEffect(() => {
-    if (status === 'submitted') {
+    if (status === 'submitted' || status === 'streaming') {
       requestAnimationFrame(() => {
         const container = messagesContainerRef.current;
         if (container) {
           container.scrollTo({
             top: container.scrollHeight,
-            behavior: 'smooth'
+            behavior: 'smooth',
           });
         }
       });
     }
   }, [status, messagesContainerRef]);
+
+  // Auto-scroll when new messages are added during streaming
+  useEffect(() => {
+    if (status === 'streaming' && messages.length > 0) {
+      requestAnimationFrame(() => {
+        scrollToBottom('auto');
+      });
+    }
+  }, [messages.length, status, scrollToBottom]);
 
   return (
     <div
@@ -96,9 +105,7 @@ function PureMessages({
           {status === 'submitted' &&
             messages.length > 0 &&
             messages[messages.length - 1].role === 'user' &&
-            selectedModelId !== 'chat-model-reasoning' && (
-              <ThinkingMessage />
-            )}
+            selectedModelId !== 'chat-model-reasoning' && <ThinkingMessage />}
 
           <div
             ref={messagesEndRef}

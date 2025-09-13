@@ -3,13 +3,28 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
 import logging
+import openai
+import os
+from dotenv import load_dotenv
 
 from .agents.chat import stream_chat_py
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure simple logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 app = FastAPI()
+
+# Initialize OpenAI client
+client = openai.AsyncOpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    timeout=60.0,
+    default_headers={
+        "OpenAI-Beta": "assistants=v2",
+    },
+)
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]
@@ -23,6 +38,7 @@ async def chat_endpoint(chat_request: ChatRequest):
             chat_request.messages,
             chat_request.selectedChatModel,
             chat_request.requestHints,
+            client,  # Pass the client instance
         ),
         media_type="text/event-stream",
     )

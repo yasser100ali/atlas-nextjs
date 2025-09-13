@@ -13,10 +13,4 @@ export const chatModels: Array<ChatModel> = [
     description:
       'Balanced OpenAI multimodal model with strong quality and better latency.',
   },
-  {
-    id: 'chat-model-reasoning',
-    name: 'Deep-Research',
-    description:
-      'Optimized for long, step‑by‑step reasoning and research‑style analysis.',
-  },
 ];

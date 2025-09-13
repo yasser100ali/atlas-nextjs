@@ -13,7 +13,6 @@ export const myProvider = isTestEnvironment
       return customProvider({
         languageModels: {
           'chat-model': chatModel,
-          'chat-model-reasoning': reasoningModel,
           'title-model': titleModel,
           'artifact-model': artifactModel,
         },
@@ -32,8 +31,6 @@ export const myProvider = isTestEnvironment
           return {
             // UI label: GPT-4.1
             'chat-model': openai('gpt-4.1'),
-            // UI label: Deep-Research
-            'chat-model-reasoning': openai('o4-mini-deep-research'),
             // Keep titles/artifacts on a capable default; align with GPT-4.1
             'title-model': openai('gpt-4.1'),
             'artifact-model': openai('gpt-4.1'),
