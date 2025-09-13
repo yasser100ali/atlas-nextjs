@@ -17,14 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 app = FastAPI()
 
-# Initialize OpenAI client
-client = openai.AsyncOpenAI(
-    api_key=os.environ.get("OPENAI_API_KEY"),
-    timeout=60.0,
-    default_headers={
-        "OpenAI-Beta": "assistants=v2",
-    },
-)
+client = openai.AsyncOpenAI()
+
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]

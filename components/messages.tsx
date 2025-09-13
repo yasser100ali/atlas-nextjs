@@ -48,51 +48,82 @@ function PureMessages({
 
   // Track previous message content for continuous scrolling during streaming
   const previousContentRef = useRef<string>('');
+  const isScrollingRef = useRef<boolean>(false);
 
-  // Continuous auto-scroll as AI types
+  const NEAR_BOTTOM_PX = 120;     // how close counts as “near bottom”
+  const REVEAL_GAP_PX = 24;       // how much hidden content below view triggers a reveal
+  
+  const isNearBottom = (el: HTMLElement) =>
+    el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+  
+  const hasHiddenTail = (el: HTMLElement) =>
+    el.scrollHeight - el.scrollTop - el.clientHeight > REVEAL_GAP_PX;
+  
+
+  const userNearBottomRef = useRef(true);
+
   useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+  
+    const onScroll = () => {
+      userNearBottomRef.current = isNearBottom(el);
+    };
+  
+    el.addEventListener('scroll', onScroll, { passive: true });
+    // initialize
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [messagesContainerRef]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+  
     if (status === 'streaming' && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
-      const currentContent = JSON.stringify(lastMessage.parts);
-
-      // Check if content has actually changed
+      const currentContent = JSON.stringify(
+        (lastMessage as any).parts ?? (lastMessage as any).content ?? lastMessage
+      );
+  
       if (currentContent !== previousContentRef.current) {
-        const isFirstContent = previousContentRef.current === '';
         previousContentRef.current = currentContent;
-
-        // Auto-scroll when content changes during streaming
-        requestAnimationFrame(() => {
-          const container = messagesContainerRef.current;
-          if (container) {
-            container.scrollTo({
-              top: container.scrollHeight,
-              // Use smooth for the first bit of content, then auto for continuous typing
-              behavior: isFirstContent ? 'smooth' : 'auto',
+  
+        // Only auto-reveal while streaming if the user is at/near the bottom.
+        if (userNearBottomRef.current) {
+          // If the tail is below the viewport, nudge down smoothly (never up)
+          const target = container.scrollHeight - container.clientHeight;
+          if (target > container.scrollTop && hasHiddenTail(container)) {
+            // Large distances use instant to avoid lagging behind; small use smooth
+            const distance = target - container.scrollTop;
+            const behavior: ScrollBehavior = distance < 800 ? 'smooth' : 'auto';
+            requestAnimationFrame(() => {
+              container.scrollTo({ top: target, behavior });
             });
           }
-        });
+        }
       }
-    } else if (status !== 'streaming') {
-      // Reset when not streaming
+    } else {
       previousContentRef.current = '';
+      isScrollingRef.current = false;
     }
   }, [messages, status, messagesContainerRef]);
+  
 
-  // Initial smooth scroll when new prompt is submitted
+  // When user submits a prompt, scroll only if they are near the bottom (avoid jump-up-then-down)
   useEffect(() => {
-    if (status === 'submitted') {
-      // Use a small delay to ensure the new message is rendered
-      setTimeout(() => {
-        const container = messagesContainerRef.current;
-        if (container) {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth',
-          });
-        }
-      }, 50); // Small delay for smooth transition
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (status !== 'submitted') return;
+
+    if (isNearBottom(container)) {
+      const target = container.scrollHeight - container.clientHeight;
+      requestAnimationFrame(() => {
+        container.scrollTo({ top: target, behavior: 'smooth' });
+      });
     }
   }, [status, messagesContainerRef]);
+
 
   return (
     <div
