@@ -1,6 +1,6 @@
 import { PreviewMessage, ThinkingMessage } from './message';
 import { Greeting } from './greeting';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { Vote } from '@/lib/db/schema';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
@@ -46,9 +46,43 @@ function PureMessages({
 
   useDataStream();
 
+  // Track previous message content for continuous scrolling during streaming
+  const previousContentRef = useRef<string>('');
+
+  // Continuous auto-scroll as AI types
   useEffect(() => {
-    if (status === 'submitted' || status === 'streaming') {
-      requestAnimationFrame(() => {
+    if (status === 'streaming' && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      const currentContent = JSON.stringify(lastMessage.parts);
+
+      // Check if content has actually changed
+      if (currentContent !== previousContentRef.current) {
+        const isFirstContent = previousContentRef.current === '';
+        previousContentRef.current = currentContent;
+
+        // Auto-scroll when content changes during streaming
+        requestAnimationFrame(() => {
+          const container = messagesContainerRef.current;
+          if (container) {
+            container.scrollTo({
+              top: container.scrollHeight,
+              // Use smooth for the first bit of content, then auto for continuous typing
+              behavior: isFirstContent ? 'smooth' : 'auto',
+            });
+          }
+        });
+      }
+    } else if (status !== 'streaming') {
+      // Reset when not streaming
+      previousContentRef.current = '';
+    }
+  }, [messages, status, messagesContainerRef]);
+
+  // Initial smooth scroll when new prompt is submitted
+  useEffect(() => {
+    if (status === 'submitted') {
+      // Use a small delay to ensure the new message is rendered
+      setTimeout(() => {
         const container = messagesContainerRef.current;
         if (container) {
           container.scrollTo({
@@ -56,18 +90,9 @@ function PureMessages({
             behavior: 'smooth',
           });
         }
-      });
+      }, 50); // Small delay for smooth transition
     }
   }, [status, messagesContainerRef]);
-
-  // Auto-scroll when new messages are added during streaming
-  useEffect(() => {
-    if (status === 'streaming' && messages.length > 0) {
-      requestAnimationFrame(() => {
-        scrollToBottom('auto');
-      });
-    }
-  }, [messages.length, status, scrollToBottom]);
 
   return (
     <div
