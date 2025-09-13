@@ -5,7 +5,6 @@ import {
   createStreamId,
   deleteChatById,
   getChatById,
-  getMessageCountByUserId,
   getMessagesByChatId,
   saveChat,
   saveMessages,
@@ -114,10 +113,7 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         try {
-          console.log('[chat:route] proxying to Python backend', {
-            chatId: id,
-            selectedChatModel,
-          });
+          // Proxying to Python backend
 
           // Proxy to Python backend
           const pythonResponse = await fetch('http://localhost:8000/api/chat', {
@@ -163,8 +159,7 @@ export async function POST(request: Request) {
                 const trimmed = line.trim();
                 if (!trimmed) continue;
 
-                // Log every raw line for debugging purposes
-                console.log('[chat:route] <- python:', trimmed.slice(0, 120));
+                // Removed token-by-token logging to clean up console
 
                 let jsonPayload: any = null;
 
@@ -243,9 +238,7 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
-        console.log('[chat:route] UI stream finished, saving messages', {
-          count: messages.length,
-        });
+        // Messages saved successfully
         await saveMessages({
           messages: messages.map((message) => ({
             id: message.id,

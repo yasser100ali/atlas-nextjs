@@ -129,16 +129,11 @@ const PurePreviewMessage = ({
                     <MessageContent
                       data-testid="message-content"
                       className={cn({
-                        'rounded-2xl px-3 py-2 break-words text-white text-right w-fit':
+                        'rounded-2xl px-4 py-3 break-words text-foreground text-right w-fit bg-muted':
                           message.role === 'user',
                         'bg-transparent px-0 py-0 text-left':
                           message.role === 'assistant',
                       })}
-                      style={
-                        message.role === 'user'
-                          ? { backgroundColor: '#006cff' }
-                          : undefined
-                      }
                     >
                       <Response>{sanitizeText(part.text)}</Response>
                     </MessageContent>
