@@ -38,7 +38,19 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
             for m in msgs:
                 role = m.get('role', 'user')
                 text = m.get('content', '')
-                part_type = "input_text" if role == 'user' else "text"
+
+                # Map roles: system -> developer; keep user/assistant as-is.
+                if role == "system":
+                    role_out = "developer"
+                elif role in ("user", "assistant"):
+                    role_out = role
+                else:
+                    # Fall back to user for unknown roles
+                    role_out = "user"
+
+
+                part_type = "input_text" if role_out == "user" else "text"
+                
                 out.append({
                     "role": "developer" if role == "system" else "user",
                     "content": [{"type": part_type, "text": str(text)}],
@@ -54,7 +66,7 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
         try:
             async with client.responses.stream(
                 model="gpt-5",
-                instruction=system_prompt,
+                instructions=system_prompt,
                 input=responses_api_input,
                 tools=[{"type": "web_search"}],
                 tool_choice="auto"
