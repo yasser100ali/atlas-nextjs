@@ -1,10 +1,10 @@
 <a href="https://chat.vercel.ai/">
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chat SDK</h1>
+  <img alt="Atlas - Healthcare AI Assistant" src="app/(chat)/opengraph-image.png">
+  <h1 align="center">Atlas - Healthcare AI Assistant</h1>
 </a>
 
 <p align="center">
-    Chat SDK is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+    Atlas is a specialized AI assistant for Kaiser Permanente, built with Next.js and FastAPI, designed to provide healthcare insights, data analysis, and support for medical professionals and patients.
 </p>
 
 <p align="center">
@@ -18,21 +18,30 @@
 
 ## Features
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports xAI (default), OpenAI, Fireworks, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+- **Healthcare-Focused AI Assistant**
+  - Specialized for Kaiser Permanente's healthcare environment
+  - Research and analysis capabilities for medical topics
+  - Support for both general healthcare conversations and specialized medical inquiries
+- **Advanced Data Analysis**
+  - CSV and Excel file upload and analysis capabilities
+  - Healthcare data processing and insights generation
+  - Interactive data visualization and reporting
+- **Dual Architecture**
+  - [Next.js](https://nextjs.org) frontend with App Router for modern web experience
+  - Python FastAPI backend for robust AI processing and data analysis
+  - Real-time streaming responses for enhanced user experience
+- **AI Integration**
+  - [AI SDK](https://ai-sdk.dev/docs/introduction) with unified API for LLMs
+  - OpenAI GPT-5 integration for advanced healthcare reasoning
+  - Web search capabilities for comprehensive medical research
+- **Modern UI/UX**
+  - [shadcn/ui](https://ui.shadcn.com) components with [Tailwind CSS](https://tailwindcss.com)
+  - Dark/light theme support with system preference detection
+  - Responsive design optimized for healthcare professionals
+- **Data Management**
+  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for secure chat history
+  - [Vercel Blob](https://vercel.com/storage/blob) for medical file storage
+  - Secure authentication with [Auth.js](https://authjs.dev)
 
 ## Model Providers
 
@@ -48,23 +57,97 @@ With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to 
 
 ## Deploy Your Own
 
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
+## Architecture Overview
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET&envDescription=Generate%20a%20random%20secret%20to%20use%20for%20authentication&envLink=https%3A%2F%2Fgenerate-secret.vercel.app%2F32&project-name=my-awesome-chatbot&repository-name=my-awesome-chatbot&demo-title=AI%20Chatbot&demo-description=An%20Open-Source%20AI%20Chatbot%20Template%20Built%20With%20Next.js%20and%20the%20AI%20SDK%20by%20Vercel&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
+Atlas uses a modern full-stack architecture:
+
+### Frontend (Next.js)
+- Built with Next.js 15 and React 19
+- App Router for optimal performance and SEO
+- Real-time chat interface with streaming responses
+- File upload support for CSV/Excel analysis
+- Responsive design with dark/light theme support
+
+### Backend (Python FastAPI)
+- Healthcare-focused AI assistant using OpenAI GPT-5
+- Streaming API responses for real-time chat
+- Web search integration for medical research
+- Data analysis capabilities for healthcare datasets
+- RESTful API design with proper error handling
+
+### Key Components
+- **Authentication**: Secure user management with NextAuth.js
+- **Database**: PostgreSQL with Drizzle ORM for chat history
+- **File Storage**: Vercel Blob for secure medical file storage
+- **AI Integration**: OpenAI API with healthcare-specific prompts
+- **UI Components**: shadcn/ui with Tailwind CSS for modern interface
+
+## Deploy Your Own
+
+You can deploy your own version of Atlas to Vercel with one click:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET&envDescription=Generate%20a%20random%20secret%20to%20use%20for%20authentication&envLink=https%3A%2F%2Fgenerate-secret.vercel.app%2F32&project-name=atlas-healthcare&repository-name=atlas-healthcare&demo-title=Atlas%20-%20Healthcare%20AI%20Assistant&demo-description=A%20specialized%20AI%20assistant%20for%20Kaiser%20Permanente%20built%20with%20Next.js%20and%20FastAPI&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+Atlas consists of both a Next.js frontend and a Python FastAPI backend. You'll need to set up environment variables for both components.
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
+### Prerequisites
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+- Node.js 18+ and pnpm
+- Python 3.8+
+- OpenAI API key
+
+### Environment Setup
+
+1. **Clone the repository and navigate to the project directory**
+2. **Install Vercel CLI:** `npm i -g vercel`
+3. **Link with Vercel:** `vercel link` (creates `.vercel` directory)
+4. **Download environment variables:** `vercel env pull`
+
+### Frontend Setup (Next.js)
 
 ```bash
+# Install dependencies
 pnpm install
+
+# Start the frontend (includes backend via concurrently)
 pnpm dev
 ```
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+### Backend Setup (Python FastAPI)
+
+If you need to run the backend separately:
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # On macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+export OPENAI_API_KEY=your_openai_api_key_here
+
+# Run the backend server
+uvicorn main:app --reload --port 8000
+```
+
+### Full Development Environment
+
+For the complete development experience with both frontend and backend:
+
+```bash
+# This runs both frontend (port 3000) and backend (port 8000)
+pnpm dev
+```
+
+Your Atlas application will be available at [localhost:3000](http://localhost:3000).
+
+> **Security Note:** Never commit your `.env` file or expose your OpenAI API key in version control.
