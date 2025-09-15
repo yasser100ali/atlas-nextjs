@@ -50,7 +50,7 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
 
 
                 part_type = "input_text" if role_out == "user" else "text"
-                
+
                 out.append({
                     "role": "developer" if role == "system" else "user",
                     "content": [{"type": part_type, "text": str(text)}],

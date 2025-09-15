@@ -29,7 +29,7 @@ import {
   PromptInputModelSelectTrigger,
   PromptInputModelSelectContent,
 } from './elements/prompt-input';
-import { SelectItem, } from '@/components/ui/select';
+import { SelectItem } from '@/components/ui/select';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -303,7 +303,7 @@ function PureMultimodalInput({
         className="rounded-xl border shadow-sm transition-all duration-200 bg-background border-border focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
-          if (status !== 'ready') {
+          if (status === 'submitted' || status === 'streaming') {
             toast.error('Please wait for the model to finish its response!');
           } else {
             submitForm();
@@ -367,7 +367,7 @@ function PureMultimodalInput({
             <ModelSelectorCompact selectedModelId={selectedModelId} />
             <Context {...contextProps} />
           </PromptInputTools>
-          {status === 'submitted' ? (
+          {status === 'submitted' || status === 'streaming' ? (
             <StopButton stop={stop} setMessages={setMessages} />
           ) : (
             <PromptInputSubmit
@@ -417,7 +417,9 @@ function PureAttachmentsButton({
         event.preventDefault();
         fileInputRef.current?.click();
       }}
-      disabled={status !== 'ready' || isReasoningModel}
+      disabled={
+        status === 'submitted' || status === 'streaming' || isReasoningModel
+      }
       variant="ghost"
       size="sm"
     >
