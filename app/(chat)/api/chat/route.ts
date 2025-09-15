@@ -185,6 +185,29 @@ export async function POST(request: Request) {
                     type: 'text-start',
                     id: assistantId,
                   } as any);
+                } else if (type === 'error') {
+                  // Convert backend error into a friendly assistant message and finish the stream
+                  if (!assistantId) {
+                    assistantId = generateUUID();
+                    dataStream.write({
+                      type: 'text-start',
+                      id: assistantId,
+                    } as any);
+                  }
+                  const message =
+                    (jsonPayload.message as string) || 'An error occurred.';
+                  dataStream.write({
+                    type: 'text-delta',
+                    id: assistantId,
+                    delta: `\n[Error] ${message}\n`,
+                  } as any);
+                  dataStream.write({
+                    type: 'text-end',
+                    id: assistantId,
+                  } as any);
+                  dataStream.write({ type: 'finish' } as any);
+                  assistantId = null;
+                  continue;
                 } else if (type === 'text-delta') {
                   if (!assistantId) {
                     assistantId = generateUUID();
@@ -208,7 +231,11 @@ export async function POST(request: Request) {
                 } else if (type === 'start-step') {
                   // Map python control event to UI control event
                   dataStream.write({ type: 'start' } as any);
-                } else if (type === 'finish-step' || type === 'final') {
+                } else if (
+                  type === 'finish-step' ||
+                  type === 'step-end' ||
+                  type === 'final'
+                ) {
                   dataStream.write({ type: 'finish' } as any);
                   assistantId = null;
                 } else {
