@@ -39,24 +39,26 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
                 role = m.get('role', 'user')
                 text = m.get('content', '')
 
-                # Map roles: system -> developer; keep user/assistant as-is.
-                if role == "system":
-                    role_out = "developer"
-                elif role in ("user", "assistant"):
-                    role_out = role
+                # Map roles to Responses API roles
+                if role == 'system':
+                    role_out = 'developer'
+                elif role == 'assistant':
+                    role_out = 'assistant'
                 else:
-                    # Fall back to user for unknown roles
-                    role_out = "user"
+                    role_out = 'user'
 
-
-                part_type = "input_text" if role_out == "user" else "text"
+                # Content types allowed by Responses API
+                if role_out in ('user', 'developer'):
+                    part_type = 'input_text'
+                else:
+                    part_type = 'output_text'
 
                 out.append({
-                    "role": "developer" if role == "system" else "user",
-                    "content": [{"type": part_type, "text": str(text)}],
+                    'role': role_out,
+                    'content': [{'type': part_type, 'text': str(text)}],
                 })
 
-            return out 
+            return out
 
         responses_api_input = to_responses_input(msgs=messages)
 
