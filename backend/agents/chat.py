@@ -14,6 +14,8 @@ TOOLS = []
 
 load_dotenv()
 
+
+
 async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: str, request_hints: Dict[str, Any]):
     """
     Handles chat streaming logic with tool support.
@@ -24,37 +26,52 @@ async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: st
     client = AsyncOpenAI()
 
     try:
-        system_prompt = ""
-        all_messages = [{"role": "system", "content": system_prompt}] + messages
+        system_prompt = """
+        You are a healthcare and Data Analyst Assistant that works for Kaiser Permanente. 
+        The user may ask you to research into various healthcare topics or business topics related to healthcare or Kaiser or they may have general chats which won't require you to search things up on the internet.
+        They may also ask you to analyze their csv or excel files they uploaded at which point you will call 'data_analyst_agent'
+        """
 
-        yield f"data: {json.dumps({'type': 'start-step'})}\n\n"
-        yield f"data: {json.dumps({'type': 'text-start'})}\n\n"
+        def to_responses_input(msgs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            out: List[Dict[str, Any]] = []
+
+            for m in msgs:
+                role = m.get('role', 'user')
+                text = m.get('content', '')
+                part_type = "input_text" if role == 'user' else "text"
+                out.append({
+                    "role": "developer" if role == "system" else "user",
+                    "content": [{"type": part_type, "text": str(text)}],
+                })
+
+            return out 
+
+        responses_api_input = to_responses_input(msgs=messages)
+
+        yield f"data: {json.dumps({"type": "start-step"})}\n\n"
+        yield f"data: {json.dumps({"type": "text-start"})}\n\n"
 
         try:
-            response_stream = await client.chat.completions.create(
-                model='gpt-4o-mini',
-                messages=all_messages,
-                tools=TOOLS,
-                tool_choice="auto",
-                stream=True
-            )
+            async with client.responses.stream(
+                model="gpt-5",
+                instruction=system_prompt,
+                input=responses_api_input,
+                tools=[{"type": "web_search"}],
+                tool_choice="auto"
+            ) as stream:
+                async for event in stream:
+                    if event.type=="response.output_text.delta":
+                        yield f"data: {json.dumps({"type": "text-delta", "delta": event.delta})}\n\n"
+                    elif event.type == "response.error":
+                        yield f"data: {json.dumps({"type": "error", "message": getattr(event, 'error', 'unknown error')})}\n\n"
+                    elif event.type == "response.completed":
+                        break
 
-            async for chunk in response_stream:
-                delta = chunk.choices[0].delta
-                if delta and delta.content:
-                    yield f"data: {json.dumps({'type': 'text-delta', 'delta': delta.content})}\n\n"
-
-                
-
+            yield f"data: {json.dumps({"type": "text-end"})}\n\n"
+            yield f"data: {json.dumps({"type": "step-end"})}\n\n"
+        
         except Exception as e:
-            error_message = f"\n[chat error] {str(e)}"
-            logger.error(error_message, exc_info=True)
-            yield f"data: {json.dumps({'type': 'text-delta', 'delta': error_message})}\n\n"
-            raise
-        finally:
-            yield f"data: {json.dumps({'type': 'text-end'})}\n\n"
-            yield f"data: {json.dumps({'type': 'finish-step'})}\n\n"
-            yield f"data: {json.dumps({'type': 'final'})}\n\n"
+            yield f"data: {json.dumps({"type": "error", "message": str(e)})}\n\n"
 
     finally:
         duration = time.time() - start_time
