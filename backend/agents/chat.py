@@ -3,7 +3,7 @@ import time
 import logging 
 from typing import List, Any, Dict, AsyncIterator
 from dotenv import load_dotenv
-from agents import Agent, Runner, developer, user, assistant, WebSearchTool
+from agents import Agent, Runner, WebSearchTool
 
 load_dotenv()
 
@@ -22,18 +22,18 @@ def get_agent(model: str) -> Agent:
 
     return _AGENT_CACHE[model]
 
-def to_agent_messages(history: List[Dict[str, Any]]): 
+def to_agent_messages(history: List[Dict[str, Any]]):
     msgs = []
     for m in history:
         role = m.get("role", "user").lower()
         text = str(m.get("content", ""))
 
         if role == "system":
-            msgs.append(developer(text))
-        elif role == "assistant": 
-            msgs.append(assistant(text))
+            msgs.append({"content": text, "role": "developer", "type": "message"})
+        elif role == "assistant":
+            msgs.append({"content": text, "role": "assistant", "type": "message"})
         else:
-            msgs.append(user(text))
+            msgs.append({"content": text, "role": "user", "type": "message"})
 
     return msgs
 
@@ -61,7 +61,7 @@ async def stream_chat_py(
             et = getattr(ev, "type", "")
 
             if et in ("text.delta", "response.text.delta", "agent.output_text.delta"):
-                chunk = getattr(et, "delta", None) or getattr(ev, "text", "")
+                chunk = getattr(ev, "delta", None) or getattr(ev, "text", "")
                 if chunk: 
                     yield f"data: {json.dumps({"type": "text-delta", "delta": chunk})}\n\n"
 
@@ -69,7 +69,7 @@ async def stream_chat_py(
                 msg = str(getattr(ev, "error", "unknown_error"))
                 yield f"data: {json.dumps({"type": "error", "message": msg})}\n\n"
         
-        yield f"data: {json.dumps({"type" "text-end"})}\n\n"
+        yield f"data: {json.dumps({"type": "text-end"})}\n\n"
         yield f"data: {json.dumps({"type": "end-step"})}\n\n"
 
     except Exception as e:
