@@ -1,92 +1,82 @@
-import json
-import os
+import json 
 import time
-import logging
-from typing import Dict, List, Any
-from openai import OpenAI, AsyncOpenAI
+import logging 
+from typing import List, Any, Dict, AsyncIterator
 from dotenv import load_dotenv
-# Set up logging
-logger = logging.getLogger(__name__)
-
-# Tool definitions for function calling
-# No tools are defined for now, but the structure is here for future use.
-TOOLS = []
+from agents import Agent, Runner, developer, user, assistant, WebSearchTool
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
+_AGENT_CACHE: dict[str, Agent] = {}
 
-async def stream_chat_py(messages: List[Dict[str, Any]], selected_chat_model: str, request_hints: Dict[str, Any]):
-    """
-    Handles chat streaming logic with tool support.
-    Yields data in Server-Sent Events format.
-    """
+def get_agent(model: str) -> Agent:
+    if model not in _AGENT_CACHE:
+        _AGENT_CACHE[model] = Agent(
+            name="Orchestrator Assistant",
+            model=model,
+            instructions="You are a healthcare and Data Analyst Assistant for Kaiser Permanente. Use web_search for current facts and cite sources. If the user uploads CSV/Excel and asks for analysis, you will call 'data_analyst_agent'. Be concise.",
+            tools=[WebSearchTool()]
+        )
+
+    return _AGENT_CACHE[model]
+
+def to_agent_messages(history: List[Dict[str, Any]]): 
+    msgs = []
+    for m in history:
+        role = m.get("role", "user").lower()
+        text = str(m.get("content", ""))
+
+        if role == "system":
+            msgs.append(developer(text))
+        elif role == "assistant": 
+            msgs.append(assistant(text))
+        else:
+            msgs.append(user(text))
+
+    return msgs
+
+async def stream_chat_py(
+    messages: List[Dict[str, Any]],
+    selected_chat_mode: str,
+    request_hints: Dict[str, Any] | None 
+) -> AsyncIterator[str]:
+
     start_time = time.time()
 
-    client = AsyncOpenAI()
+    model = selected_chat_mode or "gpt-5"
+    agent = get_agent(model)
 
-    try:
-        system_prompt = """
-        You are a healthcare and Data Analyst Assistant that works for Kaiser Permanente. 
-        The user may ask you to research into various healthcare topics or business topics related to healthcare or Kaiser or they may have general chats which won't require you to search things up on the internet.
-        They may also ask you to analyze their csv or excel files they uploaded at which point you will call 'data_analyst_agent'
-        """
+    agent_input = to_agent_messages(messages)
 
-        def to_responses_input(msgs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            out: List[Dict[str, Any]] = []
+    # Prologue 
+    yield f"data: {json.dumps({"type": "start-step"})}\n\n"
+    yield f"data: {json.dumps({"type": "text-start"})}\n\n"
 
-            for m in msgs:
-                role = m.get('role', 'user')
-                text = m.get('content', '')
+    try: 
+        streamed = Runner.run_streamed(agent, input=agent_input)
 
-                # Map roles to Responses API roles
-                if role == 'system':
-                    role_out = 'developer'
-                elif role == 'assistant':
-                    role_out = 'assistant'
-                else:
-                    role_out = 'user'
+        async for ev in streamed.stream_events():
+            et = getattr(ev, "type", "")
 
-                # Content types allowed by Responses API
-                if role_out in ('user', 'developer'):
-                    part_type = 'input_text'
-                else:
-                    part_type = 'output_text'
+            if et in ("text.delta", "response.text.delta", "agent.output_text.delta"):
+                chunk = getattr(et, "delta", None) or getattr(ev, "text", "")
+                if chunk: 
+                    yield f"data: {json.dumps({"type": "text-delta", "delta": chunk})}\n\n"
 
-                out.append({
-                    'role': role_out,
-                    'content': [{'type': part_type, 'text': str(text)}],
-                })
-
-            return out
-
-        responses_api_input = to_responses_input(msgs=messages)
-
-        yield f"data: {json.dumps({"type": "start-step"})}\n\n"
-        yield f"data: {json.dumps({"type": "text-start"})}\n\n"
-
-        try:
-            async with client.responses.stream(
-                model="gpt-5",
-                instructions=system_prompt,
-                input=responses_api_input,
-                tools=[{"type": "web_search"}],
-                tool_choice="auto"
-            ) as stream:
-                async for event in stream:
-                    if event.type=="response.output_text.delta":
-                        yield f"data: {json.dumps({"type": "text-delta", "delta": event.delta})}\n\n"
-                    elif event.type == "response.error":
-                        yield f"data: {json.dumps({"type": "error", "message": getattr(event, 'error', 'unknown error')})}\n\n"
-                    elif event.type == "response.completed":
-                        break
-
-            yield f"data: {json.dumps({"type": "text-end"})}\n\n"
-            yield f"data: {json.dumps({"type": "step-end"})}\n\n"
+            elif et in ("error", "agent.error", "run.error"):
+                msg = str(getattr(ev, "error", "unknown_error"))
+                yield f"data: {json.dumps({"type": "error", "message": msg})}\n\n"
         
-        except Exception as e:
-            yield f"data: {json.dumps({"type": "error", "message": str(e)})}\n\n"
+        yield f"data: {json.dumps({"type" "text-end"})}\n\n"
+        yield f"data: {json.dumps({"type": "end-step"})}\n\n"
 
-    finally:
-        duration = time.time() - start_time
-        logger.info(f"Chat Agent completed in {duration:.2f} seconds")
+    except Exception as e:
+        yield f"data: {json.dumps({"type": "error", "message": str(e)})}\n\n"
+
+    finally: 
+        end_time = time.time()
+        duration = end_time - start_time
+        logger.info(f"Chat Agent completed in {duration:.2f} seconds.")
+    

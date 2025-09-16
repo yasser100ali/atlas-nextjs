@@ -1,20 +1,8 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Atlas - Healthcare AI Assistant" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Atlas - Healthcare AI Assistant</h1>
-</a>
 
-<p align="center">
-    Atlas is a specialized AI assistant for Kaiser Permanente, built with Next.js and FastAPI, designed to provide healthcare insights, data analysis, and support for medical professionals and patients.
-</p>
+##Atlas is a specialized AI assistant for Kaiser Permanente, built with Next.js and FastAPI, designed to provide healthcare insights, data analysis, and support for medical professionals and patients.
 
-<p align="center">
-  <a href="https://chat-sdk.dev"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
-<br/>
+
+
 
 ## Features
 
