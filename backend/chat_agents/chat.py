@@ -38,7 +38,6 @@ async def stream_chat_py(
         name="agent",
         model="gpt-4.1",
         instructions="You are a healthcare and Data Analyst Assistant for Kaiser Permanente. Use web_search for current facts and cite sources. If the user uploads CSV/Excel and asks for analysis, you will call 'data_analyst_agent'. Be concise.",
-        tools=[WebSearchTool()]
     )
 
     agent_input = to_agent_messages(messages)

@@ -6,7 +6,7 @@ import logging
 import os
 from dotenv import load_dotenv
 
-from .agents.chat import stream_chat_py
+from .chat_agents.chat import stream_chat_py
 
 
 # Configure simple logging
