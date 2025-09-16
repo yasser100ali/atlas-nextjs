@@ -9,18 +9,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_AGENT_CACHE: dict[str, Agent] = {}
 
-def get_agent(model: str) -> Agent:
-    if model not in _AGENT_CACHE:
-        _AGENT_CACHE[model] = Agent(
-            name="Orchestrator Assistant",
-            model=model,
-            instructions="You are a healthcare and Data Analyst Assistant for Kaiser Permanente. Use web_search for current facts and cite sources. If the user uploads CSV/Excel and asks for analysis, you will call 'data_analyst_agent'. Be concise.",
-            tools=[WebSearchTool()]
-        )
-
-    return _AGENT_CACHE[model]
 
 def to_agent_messages(history: List[Dict[str, Any]]):
     msgs = []
@@ -45,8 +34,12 @@ async def stream_chat_py(
 
     start_time = time.time()
 
-    model = selected_chat_mode or "gpt-5"
-    agent = get_agent(model)
+    agent = Agent(
+        name="agent",
+        model="gpt-4.1",
+        instructions="You are a healthcare and Data Analyst Assistant for Kaiser Permanente. Use web_search for current facts and cite sources. If the user uploads CSV/Excel and asks for analysis, you will call 'data_analyst_agent'. Be concise.",
+        tools=[WebSearchTool()]
+    )
 
     agent_input = to_agent_messages(messages)
 
