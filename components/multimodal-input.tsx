@@ -11,6 +11,7 @@ import {
   type ChangeEvent,
   memo,
   useMemo,
+  useRef as _useRef, // no-op alias to avoid accidental shadowing
 } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
@@ -124,6 +125,160 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
+  // NEW: drag-and-drop UI state
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isPageDragOver, setIsPageDragOver] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
+  const wasPageDragOverRef = useRef(false);
+
+  // NEW: file validation helpers (PDF, CSV, XLS/XLSX; size limits)
+  const supportedMimeTypes = useMemo(
+    () => [
+      'application/pdf',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
+    [],
+  );
+
+  const isSupportedFile = (file: File) => {
+    const name = file.name.toLowerCase();
+    const type = file.type;
+    const validType =
+      supportedMimeTypes.includes(type) ||
+      name.endsWith('.csv') ||
+      name.endsWith('.xlsx') ||
+      name.endsWith('.xls') ||
+      // allow some CSVs that come through as text/plain
+      (type === 'text/plain' && name.endsWith('.csv'));
+    if (!validType) {
+      toast.error(
+        `${file.name}: Unsupported type. Upload PDF, CSV, or Excel (.xlsx, .xls).`,
+      );
+      return false;
+    }
+    // Size: PDFs up to 50MB, data files up to 10MB
+    const isPdf = type === 'application/pdf' || name.endsWith('.pdf');
+    const maxBytes = isPdf ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(
+        `${file.name}: File too large. Max ${
+          isPdf ? '50MB (PDF)' : '10MB (CSV/Excel)'
+        }.`,
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // Keep your upload API
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const { url, pathname, contentType } = data;
+
+        return {
+          url,
+          name: pathname,
+          contentType: contentType,
+        } as Attachment;
+      }
+      const { error } = await response.json();
+      toast.error(error);
+    } catch {
+      toast.error('Failed to upload file, please try again!');
+    }
+  };
+
+  // NEW: shared handler to process a FileList via your uploader + queue UI
+  const processFiles = useCallback(
+    async (fileList: FileList | File[]) => {
+      const files = Array.from(fileList);
+
+      const valid = files.filter(isSupportedFile);
+      if (valid.length === 0) return;
+
+      setUploadQueue((q) => [...q, ...valid.map((f) => f.name)]);
+
+      try {
+        const uploaded = await Promise.all(valid.map((f) => uploadFile(f)));
+        const ok = uploaded.filter(Boolean) as Attachment[];
+        if (ok.length) {
+          setAttachments((curr) => [...curr, ...ok]);
+        }
+      } finally {
+        // remove processed filenames from queue
+        setUploadQueue((prev) =>
+          prev.filter((name) => !valid.some((f) => f.name === name)),
+        );
+        // reset native input so selecting the same file re-triggers onChange
+        if (fileInputRef.current) {
+          try {
+            fileInputRef.current.value = '';
+          } catch {}
+        }
+      }
+    },
+    [setAttachments],
+  );
+
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      if (event.target.files && event.target.files.length > 0) {
+        await processFiles(event.target.files);
+      }
+    },
+    [processFiles],
+  );
+
+  const modelResolver = useMemo(() => {
+    return myProvider.languageModel(selectedModelId);
+  }, [selectedModelId]);
+
+  const contextMax = useMemo(() => {
+    // Resolve from selected model; stable across chunks.
+    const cw = getContextWindow(modelResolver.modelId);
+    return cw.combinedMax ?? cw.inputMax ?? 0;
+  }, [modelResolver]);
+
+  const usedTokens = useMemo(() => {
+    // Prefer explicit usage data part captured via onData
+    if (!usage) return 0; // update only when final usage arrives
+    const n = normalizeUsage(usage);
+    return typeof n.total === 'number'
+      ? n.total
+      : (n.input ?? 0) + (n.output ?? 0);
+  }, [usage]);
+
+  const contextProps = useMemo(
+    () => ({
+      maxTokens: contextMax,
+      usedTokens,
+      usage,
+      modelId: modelResolver.modelId,
+      showBreakdown: true as const,
+    }),
+    [contextMax, usedTokens, usage, modelResolver],
+  );
+
+  const { isAtBottom, scrollToBottom } = useScrollToBottom();
+
+  useEffect(() => {
+    if (status === 'submitted') {
+      scrollToBottom();
+    }
+  }, [status, scrollToBottom]);
+
   const submitForm = useCallback(() => {
     window.history.replaceState({}, '', `/chat/${chatId}`);
 
@@ -162,99 +317,122 @@ function PureMultimodalInput({
     chatId,
   ]);
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const { url, pathname, contentType } = data;
-
-        return {
-          url,
-          name: pathname,
-          contentType: contentType,
-        };
+  // NEW: component-level DnD handlers (drop onto the input area)
+  const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer?.types.includes('Files')) setIsDragOver(true);
+  };
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // prevent flicker when moving between children
+    setTimeout(() => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+        setIsDragOver(false);
       }
-      const { error } = await response.json();
-      toast.error(error);
-    } catch (error) {
-      toast.error('Failed to upload file, please try again!');
+    }, 10);
+  };
+  const onDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    setIsPageDragOver(false);
+    setDragCounter(0);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      await processFiles(files);
     }
   };
 
-  const modelResolver = useMemo(() => {
-    return myProvider.languageModel(selectedModelId);
-  }, [selectedModelId]);
-
-  const contextMax = useMemo(() => {
-    // Resolve from selected model; stable across chunks.
-    const cw = getContextWindow(modelResolver.modelId);
-    return cw.combinedMax ?? cw.inputMax ?? 0;
-  }, [modelResolver]);
-
-  const usedTokens = useMemo(() => {
-    // Prefer explicit usage data part captured via onData
-    if (!usage) return 0; // update only when final usage arrives
-    const n = normalizeUsage(usage);
-    return typeof n.total === 'number'
-      ? n.total
-      : (n.input ?? 0) + (n.output ?? 0);
-  }, [usage]);
-
-  const contextProps = useMemo(
-    () => ({
-      maxTokens: contextMax,
-      usedTokens,
-      usage,
-      modelId: modelResolver.modelId,
-      showBreakdown: true as const,
-    }),
-    [contextMax, usedTokens, usage, modelResolver],
-  );
-
-  const handleFileChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []);
-
-      setUploadQueue(files.map((file) => file.name));
-
-      try {
-        const uploadPromises = files.map((file) => uploadFile(file));
-        const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined,
-        );
-
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...successfullyUploadedAttachments,
-        ]);
-      } catch (error) {
-        console.error('Error uploading files!', error);
-      } finally {
-        setUploadQueue([]);
-      }
-    },
-    [setAttachments],
-  );
-
-  const { isAtBottom, scrollToBottom } = useScrollToBottom();
-
+  // NEW: full-page overlay DnD (drop anywhere)
   useEffect(() => {
-    if (status === 'submitted') {
-      scrollToBottom();
-    }
-  }, [status, scrollToBottom]);
+    const onWindowDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      setDragCounter((c) => c + 1);
+      if (e.dataTransfer?.types.includes('Files')) {
+        setIsPageDragOver(true);
+        wasPageDragOverRef.current = true;
+      }
+    };
+    const onWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    const onWindowDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      setDragCounter(0);
+      setIsPageDragOver(false);
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0 && wasPageDragOverRef.current) {
+        await processFiles(files);
+      }
+      wasPageDragOverRef.current = false;
+    };
+    const onWindowDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      setDragCounter((prev) => {
+        const next = prev - 1;
+        if (next <= 0) {
+          setIsPageDragOver(false);
+          wasPageDragOverRef.current = false;
+          return 0;
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener('dragenter', onWindowDragEnter);
+    window.addEventListener('dragover', onWindowDragOver);
+    window.addEventListener('drop', onWindowDrop);
+    window.addEventListener('dragleave', onWindowDragLeave);
+    return () => {
+      window.removeEventListener('dragenter', onWindowDragEnter);
+      window.removeEventListener('dragover', onWindowDragOver);
+      window.removeEventListener('drop', onWindowDrop);
+      window.removeEventListener('dragleave', onWindowDragLeave);
+    };
+  }, [processFiles]);
 
   return (
     <div className="flex relative flex-col gap-4 w-full">
+      {/* NEW: full-page drop overlay */}
+      {isPageDragOver && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsPageDragOver(false);
+            setDragCounter(0);
+            wasPageDragOverRef.current = false;
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+              processFiles(files);
+            }
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setDragCounter((prev) => {
+              const next = prev - 1;
+              if (next <= 0) {
+                setIsPageDragOver(false);
+                wasPageDragOverRef.current = false;
+                return 0;
+              }
+              return next;
+            });
+          }}
+        >
+          <div className="rounded-2xl border-2 border-dashed border-foreground/40 px-6 py-4 text-sm">
+            Drop files to attach
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
         {!isAtBottom && (
           <motion.div
@@ -297,10 +475,14 @@ function PureMultimodalInput({
         multiple
         onChange={handleFileChange}
         tabIndex={-1}
+        // NEW: restrict chooser types
+        accept=".pdf,.csv,.xlsx,.xls,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/plain"
       />
 
       <PromptInput
-        className="rounded-xl border shadow-sm transition-all duration-200 bg-background border-border focus-within:border-border hover:border-muted-foreground/50"
+        className={`rounded-xl border shadow-sm transition-all duration-200 bg-background border-border focus-within:border-border hover:border-muted-foreground/50 ${
+          isDragOver ? 'bg-primary/10' : ''
+        }`}
         onSubmit={(event) => {
           event.preventDefault();
           if (status === 'submitted' || status === 'streaming') {
@@ -309,6 +491,11 @@ function PureMultimodalInput({
             submitForm();
           }
         }}
+        // NEW: DnD hooks on the input container
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
       >
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
@@ -372,7 +559,9 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               status={status}
-              disabled={!input.trim() || uploadQueue.length > 0}
+              disabled={
+                !input.trim() || uploadQueue.length > 0 /* blocks while uploading */
+              }
               className="p-2 rounded-full transition-colors duration-200 text-primary-foreground bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
             >
               <ArrowUpIcon size={16} />
