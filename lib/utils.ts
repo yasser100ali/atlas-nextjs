@@ -119,8 +119,15 @@ export function convertToModelMessages(
 }
 
 export function getTextFromMessage(message: ChatMessage): string {
-  return message.parts
+  const textParts = message.parts
     .filter((part) => part.type === 'text')
-    .map((part) => part.text)
-    .join('');
+    .map((part) => part.text);
+
+  const fileParts = message.parts
+    .filter((part) => part.type === 'file')
+    .map(
+      (part) => `[File: ${part.name} (${part.mediaType}) - URL: ${part.url}]`,
+    );
+
+  return [...textParts, ...fileParts].join('\n');
 }

@@ -4,3 +4,7 @@ openai
 python-dotenv
 pydantic
 openai-agents
+requests
+PyPDF2
+pandas
+openpyxl
