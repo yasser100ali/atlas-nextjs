@@ -56,6 +56,361 @@ export const AttachmentIcon = () => {
   );
 };
 
+// File type icons with macOS-style design
+export const PDFIcon = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <defs>
+      <linearGradient id="pdfGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#FF6B6B" />
+        <stop offset="100%" stopColor="#E53E3E" />
+      </linearGradient>
+      <filter id="pdfShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow
+          dx="0"
+          dy="3"
+          stdDeviation="4"
+          floodColor="#000"
+          floodOpacity="0.25"
+        />
+      </filter>
+    </defs>
+    {/* Main document body */}
+    <rect
+      x="12"
+      y="8"
+      width="36"
+      height="48"
+      rx="4"
+      fill="url(#pdfGradient)"
+      filter="url(#pdfShadow)"
+    />
+    {/* Folded corner */}
+    <path d="M36 8L48 20V16C48 11.5817 44.4183 8 40 8H36Z" fill="#DC2626" />
+    {/* Inner content area */}
+    <rect
+      x="16"
+      y="20"
+      width="28"
+      height="28"
+      rx="2"
+      fill="rgba(255,255,255,0.15)"
+    />
+    {/* PDF symbol */}
+    <text
+      x="30"
+      y="36"
+      textAnchor="middle"
+      fill="white"
+      fontSize="12"
+      fontWeight="bold"
+      fontFamily="system-ui"
+    >
+      PDF
+    </text>
+    {/* Highlight */}
+    <ellipse cx="30" cy="16" rx="18" ry="4" fill="rgba(255,255,255,0.3)" />
+  </svg>
+);
+
+export const ExcelIcon = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <defs>
+      <linearGradient id="excelGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#48BB78" />
+        <stop offset="100%" stopColor="#38A169" />
+      </linearGradient>
+      <filter id="excelShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow
+          dx="0"
+          dy="3"
+          stdDeviation="4"
+          floodColor="#000"
+          floodOpacity="0.25"
+        />
+      </filter>
+    </defs>
+    {/* Main document body */}
+    <rect
+      x="12"
+      y="8"
+      width="36"
+      height="48"
+      rx="4"
+      fill="url(#excelGradient)"
+      filter="url(#excelShadow)"
+    />
+    {/* Folded corner */}
+    <path d="M36 8L48 20V16C48 11.5817 44.4183 8 40 8H36Z" fill="#2F855A" />
+    {/* Grid pattern */}
+    <rect
+      x="16"
+      y="20"
+      width="28"
+      height="28"
+      rx="2"
+      fill="rgba(255,255,255,0.15)"
+    />
+    {/* Grid lines */}
+    <line
+      x1="16"
+      y1="26"
+      x2="44"
+      y2="26"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="32"
+      x2="44"
+      y2="32"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="38"
+      x2="44"
+      y2="38"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="44"
+      x2="44"
+      y2="44"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    <line
+      x1="24"
+      y1="20"
+      x2="24"
+      y2="48"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    <line
+      x1="36"
+      y1="20"
+      x2="36"
+      y2="48"
+      stroke="rgba(255,255,255,0.5)"
+      strokeWidth="1"
+    />
+    {/* Excel symbol */}
+    <text
+      x="30"
+      y="36"
+      textAnchor="middle"
+      fill="white"
+      fontSize="10"
+      fontWeight="bold"
+      fontFamily="system-ui"
+    >
+      XLS
+    </text>
+    {/* Highlight */}
+    <ellipse cx="30" cy="16" rx="18" ry="4" fill="rgba(255,255,255,0.3)" />
+  </svg>
+);
+
+export const CSVIcon = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <defs>
+      <linearGradient id="csvGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#4299E1" />
+        <stop offset="100%" stopColor="#3182CE" />
+      </linearGradient>
+      <filter id="csvShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow
+          dx="0"
+          dy="3"
+          stdDeviation="4"
+          floodColor="#000"
+          floodOpacity="0.25"
+        />
+      </filter>
+    </defs>
+    {/* Main document body */}
+    <rect
+      x="12"
+      y="8"
+      width="36"
+      height="48"
+      rx="4"
+      fill="url(#csvGradient)"
+      filter="url(#csvShadow)"
+    />
+    {/* Folded corner */}
+    <path d="M36 8L48 20V16C48 11.5817 44.4183 8 40 8H36Z" fill="#2C5282" />
+    {/* Table pattern */}
+    <rect
+      x="16"
+      y="20"
+      width="28"
+      height="28"
+      rx="2"
+      fill="rgba(255,255,255,0.15)"
+    />
+    {/* Table grid */}
+    <line
+      x1="16"
+      y1="25"
+      x2="44"
+      y2="25"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="30"
+      x2="44"
+      y2="30"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="35"
+      x2="44"
+      y2="35"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="40"
+      x2="44"
+      y2="40"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="16"
+      y1="45"
+      x2="44"
+      y2="45"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="24"
+      y1="20"
+      x2="24"
+      y2="48"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    <line
+      x1="36"
+      y1="20"
+      x2="36"
+      y2="48"
+      stroke="rgba(255,255,255,0.6)"
+      strokeWidth="1"
+    />
+    {/* CSV symbol */}
+    <text
+      x="30"
+      y="36"
+      textAnchor="middle"
+      fill="white"
+      fontSize="10"
+      fontWeight="bold"
+      fontFamily="system-ui"
+    >
+      CSV
+    </text>
+    {/* Highlight */}
+    <ellipse cx="30" cy="16" rx="18" ry="4" fill="rgba(255,255,255,0.3)" />
+  </svg>
+);
+
+export const GenericFileIcon = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <defs>
+      <linearGradient id="genericGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#A0AEC0" />
+        <stop offset="100%" stopColor="#718096" />
+      </linearGradient>
+      <filter id="genericShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow
+          dx="0"
+          dy="3"
+          stdDeviation="4"
+          floodColor="#000"
+          floodOpacity="0.25"
+        />
+      </filter>
+    </defs>
+    {/* Main document body */}
+    <rect
+      x="12"
+      y="8"
+      width="36"
+      height="48"
+      rx="4"
+      fill="url(#genericGradient)"
+      filter="url(#genericShadow)"
+    />
+    {/* Folded corner */}
+    <path d="M36 8L48 20V16C48 11.5817 44.4183 8 40 8H36Z" fill="#4A5568" />
+    {/* Content lines */}
+    <rect
+      x="16"
+      y="20"
+      width="28"
+      height="28"
+      rx="2"
+      fill="rgba(255,255,255,0.15)"
+    />
+    <rect
+      x="18"
+      y="25"
+      width="20"
+      height="1.5"
+      fill="rgba(255,255,255,0.7)"
+      rx="0.75"
+    />
+    <rect
+      x="18"
+      y="29"
+      width="24"
+      height="1.5"
+      fill="rgba(255,255,255,0.7)"
+      rx="0.75"
+    />
+    <rect
+      x="18"
+      y="33"
+      width="18"
+      height="1.5"
+      fill="rgba(255,255,255,0.7)"
+      rx="0.75"
+    />
+    <rect
+      x="18"
+      y="37"
+      width="26"
+      height="1.5"
+      fill="rgba(255,255,255,0.7)"
+      rx="0.75"
+    />
+    <rect
+      x="18"
+      y="41"
+      width="16"
+      height="1.5"
+      fill="rgba(255,255,255,0.7)"
+      rx="0.75"
+    />
+    {/* Highlight */}
+    <ellipse cx="30" cy="16" rx="18" ry="4" fill="rgba(255,255,255,0.3)" />
+  </svg>
+);
+
 export const VercelIcon = ({ size = 17 }) => {
   return (
     <svg
