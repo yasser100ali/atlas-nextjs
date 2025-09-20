@@ -552,7 +552,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
             />
             <ModelSelectorCompact selectedModelId={selectedModelId} />
-            <Context {...contextProps} />
+            <Context {...contextProps} hidePercentage={true} />
           </PromptInputTools>
           {status === 'submitted' || status === 'streaming' ? (
             <StopButton stop={stop} setMessages={setMessages} />
@@ -560,7 +560,8 @@ function PureMultimodalInput({
             <PromptInputSubmit
               status={status}
               disabled={
-                !input.trim() || uploadQueue.length > 0 /* blocks while uploading */
+                !input.trim() ||
+                uploadQueue.length > 0 /* blocks while uploading */
               }
               className="p-2 rounded-full transition-colors duration-200 text-primary-foreground bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
             >

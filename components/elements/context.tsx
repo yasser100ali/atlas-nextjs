@@ -132,8 +132,9 @@ export const Context = ({
   usage,
   modelId,
   showBreakdown,
+  hidePercentage = false,
   ...props
-}: ContextProps) => {
+}: ContextProps & { hidePercentage?: boolean }) => {
   const safeMax = Math.max(0, Number.isFinite(maxTokens) ? maxTokens : 0);
   const safeUsed = Math.min(
     Math.max(0, Number.isFinite(usedTokens) ? usedTokens : 0),
@@ -177,118 +178,120 @@ export const Context = ({
           {...props}
         >
           <span className="font-medium text-muted-foreground">
-            {displayPct}
+            {hidePercentage ? null : displayPct}
           </span>
-          <ContextIcon percent={usedPercent} />
+          {hidePercentage ? null : <ContextIcon percent={usedPercent} />}
         </button>
       </HoverCardTrigger>
-      <HoverCardContent align="center" className="w-fit p-3">
-        <div className="min-w-[240px] space-y-2">
-          <p className="text-center text-sm">
-            {displayPct} • {used} / {total} tokens
-            {costText ? (
-              <span className="ml-1 text-muted-foreground">• {costText}</span>
-            ) : null}
-          </p>
-          {true && (
-            <div className="space-y-2">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full"
-                  style={{
-                    width: w(segCacheR),
-                    background: 'var(--chart-2)',
-                    opacity: 0.9,
-                  }}
-                />
-                <div
-                  className="h-full"
-                  style={{
-                    width: w(segCacheW),
-                    background: 'var(--chart-4)',
-                    opacity: 0.9,
-                  }}
-                />
-                <div
-                  className="h-full"
-                  style={{
-                    width: w(segInput),
-                    background: 'var(--chart-1)',
-                    opacity: 0.9,
-                  }}
-                />
-                <div
-                  className="h-full"
-                  style={{
-                    width: w(segOutput),
-                    background: 'var(--chart-3)',
-                    opacity: 0.9,
-                  }}
-                />
+      {hidePercentage ? null : (
+        <HoverCardContent align="center" className="w-fit p-3">
+          <div className="min-w-[240px] space-y-2">
+            <p className="text-center text-sm">
+              {used} / {total} tokens
+              {costText ? (
+                <span className="ml-1 text-muted-foreground">• {costText}</span>
+              ) : null}
+            </p>
+            {true && (
+              <div className="space-y-2">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full"
+                    style={{
+                      width: w(segCacheR),
+                      background: 'var(--chart-2)',
+                      opacity: 0.9,
+                    }}
+                  />
+                  <div
+                    className="h-full"
+                    style={{
+                      width: w(segCacheW),
+                      background: 'var(--chart-4)',
+                      opacity: 0.9,
+                    }}
+                  />
+                  <div
+                    className="h-full"
+                    style={{
+                      width: w(segInput),
+                      background: 'var(--chart-1)',
+                      opacity: 0.9,
+                    }}
+                  />
+                  <div
+                    className="h-full"
+                    style={{
+                      width: w(segOutput),
+                      background: 'var(--chart-3)',
+                      opacity: 0.9,
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span className="inline-block size-2 rounded-sm bg-chart-1" />
+                      Cache Hits
+                    </span>
+                    <span>{fmtOrUnknown(uBreakdown.cacheReads)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span className="inline-block size-2 rounded-sm bg-chart-2" />
+                      Cache Writes
+                    </span>
+                    <span>{fmtOrUnknown(uBreakdown.cacheWrites)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span className="inline-block size-2 rounded-sm bg-chart-3" />
+                      Input
+                    </span>
+                    <span>{formatTokens(uNorm.input)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span className="inline-block size-2 rounded-sm bg-chart-4" />
+                      Output
+                    </span>
+                    <span>{formatTokens(uNorm.output)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className="inline-block size-2 rounded-sm bg-chart-1" />
-                    Cache Hits
-                  </span>
+            )}
+            {showBreakdown && (
+              <div className="mt-1 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Cache Hits</span>
                   <span>{fmtOrUnknown(uBreakdown.cacheReads)}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className="inline-block size-2 rounded-sm bg-chart-2" />
-                    Cache Writes
-                  </span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Cache Writes</span>
                   <span>{fmtOrUnknown(uBreakdown.cacheWrites)}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className="inline-block size-2 rounded-sm bg-chart-3" />
-                    Input
-                  </span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Input</span>
                   <span>{formatTokens(uNorm.input)}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className="inline-block size-2 rounded-sm bg-chart-4" />
-                    Output
-                  </span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Output</span>
                   <span>{formatTokens(uNorm.output)}</span>
                 </div>
+                {costText && (
+                  <>
+                    <Separator className="mt-1" />
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <span className="text-muted-foreground">Total cost</span>
+                      <span>{costText}</span>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
-          {showBreakdown && (
-            <div className="mt-1 space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Cache Hits</span>
-                <span>{fmtOrUnknown(uBreakdown.cacheReads)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Cache Writes</span>
-                <span>{fmtOrUnknown(uBreakdown.cacheWrites)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Input</span>
-                <span>{formatTokens(uNorm.input)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Output</span>
-                <span>{formatTokens(uNorm.output)}</span>
-              </div>
-              {costText && (
-                <>
-                  <Separator className="mt-1" />
-                  <div className="flex items-center justify-between pt-1 text-xs">
-                    <span className="text-muted-foreground">Total cost</span>
-                    <span>{costText}</span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </HoverCardContent>
+            )}
+          </div>
+        </HoverCardContent>
+      )}
     </HoverCard>
   );
 };
