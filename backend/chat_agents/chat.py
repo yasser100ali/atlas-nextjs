@@ -9,7 +9,7 @@ from typing import List, Any, Dict, AsyncIterator
 from dotenv import load_dotenv
 from agents.agent import Agent
 from agents.run import Runner
-from agents import WebSearchTool
+from agents import WebSearchTool, CodeInterpreterTool
 import PyPDF2
 import pandas as pd
 
@@ -111,7 +111,7 @@ async def stream_chat_py(
         name="agent",
         model="gpt-4.1",
         instructions="You are a healthcare and Data Analyst Assistant for Kaiser Permanente. Use web_search for current facts and cite sources. If the user uploads CSV/Excel and asks for analysis, you will call 'data_analyst_agent'. Be concise.",
-        tools=[WebSearchTool()]
+        tools=[WebSearchTool(), CodeInterpreterTool()]
     )
 
     agent_input = to_agent_messages(messages)
